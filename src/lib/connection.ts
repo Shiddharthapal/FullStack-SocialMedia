@@ -19,7 +19,7 @@ const connect = async () => {
   } else {
     const res = await mongoose.connect(
       import.meta.env.PUBLIC_MONGODB_URI ||
-        "mongodb+srv://pal351069:shiddhartha29rikta@cluster0.qcjbn.mongodb.net/frontend_intern",
+        "mongodb+srv://pal351069:shiddhartha29rikta@cluster0.qcjbn.mongodb.net/fullstack-amplify",
     );
     if (res) {
       console.log("connected");
