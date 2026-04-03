@@ -1,3 +1,7 @@
+import { useAppDispatch } from "@/redux/hooks";
+import { loginStart, loginSuccess } from "@/redux/slices/authSlice";
+import { navigate } from "astro/virtual-modules/transitions-router.js";
+
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
@@ -23,10 +27,61 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const dispatch=useAppDispatch();
+
+  const handleSubmit = async(event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    try{
+      setLoading(true);
+      setError(""); 
+      dispatch(loginStart());
+
+      const response=await fetch("/api/auth/login",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ 
+          email:event.currentTarget.email.value,
+           password :event.currentTarget.password.value,
+          }),
+      });
+
+      const data=await response.json();
+
+      if(!response.ok){
+        setError(data.message || "An error occurred during login. Please try again.");
+      }
+
+      dispatch(
+        loginSuccess({
+          _id: result._id,
+          email: data.email,
+          token: result.token,
+          createdAt: result.createdAt || new Date().toISOString(),
+        })
+      );
+      navigate("/");
+
+    }catch(error){
+      setError("An error occurred during login. Please try again.");
+    }finally{
+      setLoading(false);
+    }
   };
+
+    if (loading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+          <p className="mt-4 text-muted-foreground">Login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section
@@ -154,7 +209,7 @@ export default function Login() {
             <p className="mt-8 text-center text-sm leading-5 text-[#2D3748]">
               Dont have an account?{" "}
               <Link
-                to="/createaccount"
+                to="/register"
                 className="font-medium text-[#1890FF] transition hover:opacity-80"
               >
                 Create New Account
