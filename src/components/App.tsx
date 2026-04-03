@@ -16,15 +16,15 @@ export default function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route path="/login" element={<Login />} />
-              <Route path="/createaccount" element={<CreateAccount />} />
-              <Route
+              <Route path="/createaccount" element={<Register />} />
+              {/* <Route
                 path="/"
                 element={
                   <ProtectedRoute>
                     <Dashboard />
                   </ProtectedRoute>
                 }
-              />
+              /> */}
               
             </Route>
           </Routes>
