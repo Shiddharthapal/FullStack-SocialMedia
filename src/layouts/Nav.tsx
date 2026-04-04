@@ -20,23 +20,23 @@ export default function Navbar() {
       return;
     }
 
-    const fetchData = async () => {
-      const response = await fetch(`/api/${id}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    // const fetchData = async () => {
+    //   const response = await fetch(`/api/${id}`, {
+    //     method: "GET",
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //     },
+    //   });
 
-      if (!response.ok) {
-        return;
-      }
+    //   if (!response.ok) {
+    //     return;
+    //   }
 
-      const result = await response.json();
-      setUserData(result.userdetails);
-    };
+    //   const result = await response.json();
+    //   setUserData(result.userdetails);
+    // };
 
-    fetchData();
+    // fetchData();
   }, [id]);
 
   const initials = useMemo(() => {
