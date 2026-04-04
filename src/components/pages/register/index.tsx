@@ -49,6 +49,10 @@ export default function Register() {
     try {
       setLoading(true);
       setError("");
+      console.log(form.firstName,
+          form.lastName.trim(),
+          form.email.trim(),
+         form.password,)
 
       const response = await fetch("/api/register", {
         method: "POST",
@@ -56,9 +60,9 @@ export default function Register() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim(),
-          email: form.email.trim(),
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
           password: form.password,
         }),
       });
@@ -211,8 +215,7 @@ export default function Register() {
                           type="email"
                           value={form.email}
                           onChange={handleChange}
-                          className="form-control _social_registration_input"
-        
+                          className="form-control _social_registration_input"    
                           required
                         />
                       </div>
