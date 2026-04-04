@@ -760,6 +760,7 @@
     color: var(--color6);
     line-height: 1.2;
 }
+
 ._notifications_btn_link {
     border: 1px solid #f1f1f1;
     font-size: 16px;
@@ -1789,6 +1790,7 @@
     transition:.2s all ease;
     display: -webkit-box;
     display: -ms-flexbox;
+    
     display: flex;
     -webkit-box-align: center;
         -ms-flex-align: center;
@@ -1800,6 +1802,7 @@
 ._mar_img {
     margin:0 8px 0 0;
 }
+
 ._feed_inner_text_area_btn_link {
     background: var(--color5);
     border-radius: 6px;
@@ -1808,6 +1811,7 @@
     display: -webkit-box;
     display: -ms-flexbox;
     display: flex;
+    
     -webkit-box-align: center;
         -ms-flex-align: center;
             align-items: center;
@@ -1818,6 +1822,7 @@
     -o-transition:.2s all ease;
     transition:.2s all ease;
 }
+
 ._feed_inner_text_area_btn_link:hover {
     background:#377DFF;
 }
@@ -1827,6 +1832,7 @@
     line-height: 24px;
     color: var(--bg2);
 }
+
 ._feed_inner_text_area_box_form {
     position: relative;
     width: 100%;
@@ -1839,6 +1845,7 @@
     color: var(--color7);
     padding: 8px !important;
     height: auto !important;
+    
 }
 ._textarea::-webkit-input-placeholder{
     font-size: 12px;
