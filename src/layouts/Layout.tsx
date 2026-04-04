@@ -12,10 +12,6 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-[#d9d9d9]">
-      <div className="fixed left-0 top-0 z-50 w-full">
-        <Nav />
-      </div>
-
       <div className={`min-h-screen ${shellSpacing}`}>
         <Outlet />
       </div>
