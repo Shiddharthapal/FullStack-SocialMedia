@@ -5,13 +5,19 @@ export const prerender = true;
 
 export function getStaticPaths() {
   return [
-    { params: { index: undefined } }, // Home page
+    { params: { index: undefined } },
+    { params: { index: "login" } },
+    { params: { index: "register" } },
   ];
 }
 
 const { index } = Astro.params;
 const title =
-  index === "about" ? "About - Fullstack developer amplify" : "Fullstack developer amplify";
+  index === "login"
+    ? "Login - Fullstack developer amplify"
+    : index === "register"
+      ? "Register - Fullstack developer amplify"
+      : "Fullstack developer amplify";
 
 ---
 

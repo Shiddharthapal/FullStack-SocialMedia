@@ -7,6 +7,7 @@ import Layout from "../layouts/Layout";
 import Login from "./pages/login/index";
 import Home from "./pages/home/index";
 import Register from "./pages/register/index";
+import ProtectedRoute from "./ProtectedRoute";
 
 
 export default function App() {
@@ -19,15 +20,15 @@ export default function App() {
               
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/" element={<Home />} />
-              {/* <Route
+
+              <Route
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <Home />
                   </ProtectedRoute>
                 }
-              /> */}
+              />
               
             </Route>
           </Routes>
