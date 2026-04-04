@@ -4,7 +4,12 @@ interface Props {
 }
 
 const { title } = Astro.props;
-import '@/styles/globals.css';
+import '../styles/global.css';
+import '../styles/css/bootstrap.min.css';
+import '../styles/css/common.css';
+import '../styles/css/main.css';
+import '../styles/css/responsive.css';
+
 ---
 <!doctype html>
 <html lang="en">
@@ -14,7 +19,7 @@ import '@/styles/globals.css';
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
+		<title>Fullstack developer amplify</title>
 	</head>
 	<body>
 		<slot />
