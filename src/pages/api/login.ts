@@ -1,93 +1,94 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import UserDetails from "@/model/User";
+import UserDetails from "@/model/user";
 import jwt from "jsonwebtoken";
-import type { Token } from "@/types/token";
 
 export const POST: APIRoute = async ({ request }) => {
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
   try {
     const body = await request.json();
-    //console.log("🧞‍♂️body --->", body);
     const { email, password } = body;
-    //console.log("email=>", email);
-    //console.log("pass=>", password);
 
-
-    // Connect to database
-    await connect();
-
-
-    const users = await UserDetails.findOne({
-      email: email,
-    });
-    //console.log("🧞‍♂️users --->", users);
-    if (!users) {
+    if (!email || !password) {
       return new Response(
         JSON.stringify({
-          message: "Invalid credentials",
+          message: "Email and password are required",
         }),
         {
-          status: 401,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          status: 400,
+          headers,
         },
       );
     }
 
-    // Verify password
-    const isPasswordValid = await users.comparePassword(password);
+    await connect();
+
+    const user = await UserDetails.findOne({
+      email,
+    });
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({
+          message: "Invalid email or password",
+        }),
+        {
+          status: 401,
+          headers,
+        },
+      );
+    }
+
+    const isPasswordValid = await user.comparePassword(password);
+
     if (!isPasswordValid) {
       return new Response(
         JSON.stringify({
-          message: "Incorrect Passeord",
+          message: "Invalid email or password",
         }),
         {
           status: 401,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
         },
       );
     }
 
-    const payload: Token = {
-      userId: users._id,
-    };
-
-    // Generate JWT token
     const token = jwt.sign(
-      payload,
+      { userId: user._id },
       import.meta.env.JWT_SECRET ||
-        import.meta.env.PUBLIC_JWR_SECRET ||
+        import.meta.env.PUBLIC_JWT_SECRET ||
         "your-secret-key",
       { expiresIn: "24h" },
     );
 
     return new Response(
       JSON.stringify({
-        _id: users._id,
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        createdAt: user.createdAt,
         token,
         message: "Login successful",
       }),
       {
         status: 200,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
       },
     );
   } catch (error) {
     console.error("Login error:", error);
+
     return new Response(
       JSON.stringify({
         message: "Internal server error",
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
       },
     );
   }

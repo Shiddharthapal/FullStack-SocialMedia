@@ -1,220 +1,262 @@
 import { useAppDispatch } from "@/redux/hooks";
-import { loginStart, loginSuccess } from "@/redux/slices/authSlice";
-import { navigate } from "astro/virtual-modules/transitions-router.js";
+import {
+  loginFailure,
+  loginStart,
+  loginSuccess,
+} from "@/redux/slices/authSlice";
+import { useState, type ChangeEvent, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+type LoginForm = {
+  email: string;
+  password: string;
+};
 
-const shapeImages = [
-  {
-    className: "left-0 top-0 hidden w-32 lg:block xl:w-auto",
-    light: "/images/shape1.svg",
-    dark: "/images/dark_shape.svg",
-  },
-  {
-    className: "right-5 top-0 hidden w-72 lg:block xl:w-auto",
-    light: "/images/shape2.svg",
-    dark: "/images/dark_shape1.svg",
-  },
-  {
-    className: "bottom-0 right-0 hidden w-80 lg:block xl:right-[327px] xl:w-auto",
-    light: "/images/shape3.svg",
-    dark: "/images/dark_shape2.svg",
-  },
-];
+const initialForm: LoginForm = {
+  email: "",
+  password: "",
+};
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const [form, setForm] = useState<LoginForm>(initialForm);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const dispatch=useAppDispatch();
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
 
-  const handleSubmit = async(event: FormEvent<HTMLFormElement>) => {
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    try{
+    try {
       setLoading(true);
-      setError(""); 
+      setError("");
       dispatch(loginStart());
 
-      const response=await fetch("/api/auth/login",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ 
-          email:event.currentTarget.email.value,
-           password :event.currentTarget.password.value,
-          }),
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.password,
+          rememberMe,
+        }),
       });
 
-      const data=await response.json();
+      const data = await response.json();
 
-      if(!response.ok){
-        setError(data.message || "An error occurred during login. Please try again.");
+      if (!response.ok) {
+        const message = data.message || "Login failed. Please try again.";
+        setError(message);
+        dispatch(loginFailure(message));
+        return;
       }
 
       dispatch(
         loginSuccess({
-          _id: result._id,
+          _id: data._id,
+          firstName: data.firstName,
+          lastName: data.lastName,
           email: data.email,
-          token: result.token,
-          createdAt: result.createdAt || new Date().toISOString(),
-        })
+          password: "",
+          createdAt: data.createdAt
+            ? new Date(data.createdAt)
+            : new Date(),
+          token: data.token,
+        }),
       );
-      navigate("/");
 
-    }catch(error){
-      setError("An error occurred during login. Please try again.");
-    }finally{
+      setForm(initialForm);
+      navigate("/");
+    } catch {
+      const message = "Login failed. Please try again.";
+      setError(message);
+      dispatch(loginFailure(message));
+    } finally {
       setLoading(false);
     }
   };
 
-    if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
-          <p className="mt-4 text-muted-foreground">Login...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <section
-      className="relative overflow-hidden bg-[#F0F2F5] px-4 py-12 sm:px-6 lg:min-h-screen lg:px-8 lg:py-[100px]"
-      style={{ fontFamily: "'Poppins', sans-serif" }}
-    >
-      {shapeImages.map((shape) => (
-        <div
-          key={shape.light}
-          className={`pointer-events-none absolute -z-10 ${shape.className}`}
-        >
-          <img src={shape.light} alt="" className="block" />
-          <img src={shape.dark} alt="" className="mt-2 block opacity-80" />
-        </div>
-      ))}
+    <section className="_social_login_wrapper _layout_main_wrapper">
+      <div className="_shape_one">
+        <img src="/images/shape1.svg" alt="" className="_shape_img" />
+        <img src="/images/dark_shape.svg" alt="" className="_dark_shape" />
+      </div>
+      <div className="_shape_two">
+        <img src="/images/shape2.svg" alt="" className="_shape_img" />
+        <img
+          src="/images/dark_shape1.svg"
+          alt=""
+          className="_dark_shape _dark_shape_opacity"
+        />
+      </div>
+      <div className="_shape_three">
+        <img src="/images/shape3.svg" alt="" className="_shape_img" />
+        <img
+          src="/images/dark_shape2.svg"
+          alt=""
+          className="_dark_shape _dark_shape_opacity"
+        />
+      </div>
 
-      <div className="mx-auto max-w-7xl">
-        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_432px] xl:gap-16">
-          <div className="hidden lg:flex lg:justify-center">
-            <img
-              src="/images/login.png"
-              alt="Login illustration"
-              className="w-full max-w-[633px]"
-            />
-          </div>
-
-          <div className="rounded-md bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)] sm:p-10 xl:p-12">
-            <div className="mb-7 flex justify-center">
-              <img
-                src="/images/logo.svg"
-                alt="Buddy Script"
-                className="w-full max-w-[161px]"
-              />
+      <div className="_social_login_wrap">
+        <div className="container">
+          <div className="row align-items-center">
+            <div className="col-xl-8 col-lg-8 col-md-12 col-sm-12">
+              <div className="_social_login_left">
+                <div className="_social_login_left_image">
+                  <img src="/images/login.png" alt="Login" className="_left_img" />
+                </div>
+              </div>
             </div>
 
-            <p className="mb-2 text-center text-base font-normal leading-6 text-[#2D3748]">
-              Welcome back
-            </p>
-            <h1 className="mb-10 text-center text-[28px] font-semibold leading-tight text-[#312000]">
-              Login to your account
-            </h1>
-
-            <button
-              type="button"
-              className="mb-10 flex w-full items-center justify-center rounded-md border border-[#F0F2F5] bg-white px-4 py-3 text-base font-medium leading-6 text-[#312000] transition hover:shadow-sm"
-            >
-              <img
-                src="/images/google.svg"
-                alt=""
-                className="mr-2 h-5 w-5 shrink-0"
-              />
-              <span>Or sign-in with google</span>
-            </button>
-
-            <div className="mb-10 flex items-center gap-4">
-              <div className="h-px flex-1 bg-[#DFDFDF]" />
-              <span className="text-sm font-normal leading-5 text-[#C4C4C4]">
-                Or
-              </span>
-              <div className="h-px flex-1 bg-[#DFDFDF]" />
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-[14px]">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="mb-2 block text-base font-medium leading-6 text-[#4A5568]"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Enter your email"
-                  className="h-12 w-full rounded-md border border-[#F5F5F5] bg-white px-4 text-[13px] leading-5 text-[#2D3748] transition outline-none placeholder:text-[#2D3748] focus:border-[#1890FF]"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="password"
-                  className="mb-2 block text-base font-medium leading-6 text-[#4A5568]"
-                >
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
-                  className="h-12 w-full rounded-md border border-[#F5F5F5] bg-white px-4 text-[13px] leading-5 text-[#2D3748] transition outline-none placeholder:text-[#2D3748] focus:border-[#1890FF]"
-                />
-              </div>
-
-              <div className="flex flex-col gap-3 pt-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <label className="inline-flex items-center gap-2 text-sm font-normal leading-5 text-[#2D3748]">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(event) => setRememberMe(event.target.checked)}
-                    className="h-4 w-4 rounded border-[#D1D5DB] accent-[#1890FF]"
+            <div className="col-xl-4 col-lg-4 col-md-12 col-sm-12">
+              <div className="_social_login_content">
+                <div className="_social_login_left_logo _mar_b28">
+                  <img
+                    src="/images/logo.svg"
+                    alt="Buddy Script"
+                    className="_left_logo"
                   />
-                  <span>Remember me</span>
-                </label>
+                </div>
+
+                <p className="_social_login_content_para _mar_b8">Welcome back</p>
+                <h4 className="_social_login_content_title _titl4 _mar_b50">
+                  Login to your account
+                </h4>
 
                 <button
                   type="button"
-                  className="text-left text-sm font-normal leading-5 text-[#1890FF] transition hover:opacity-80 sm:text-right"
+                  className="_social_login_content_btn _mar_b40"
                 >
-                  Forgot password?
+                  <img src="/images/google.svg" alt="" className="_google_img" />{" "}
+                  <span>Or sign-in with google</span>
                 </button>
+
+                <div className="_social_login_content_bottom_txt _mar_b40">
+                  <span>Or</span>
+                </div>
+
+                {error ? (
+                  <div className="alert alert-danger" role="alert">
+                    {error}
+                  </div>
+                ) : null}
+
+                <form className="_social_login_form" onSubmit={handleSubmit}>
+                  <div className="row">
+                    <div className="col-xl-12 col-lg-12 col-md-12 col-sm-12">
+                      <div className="_social_login_form_input _mar_b14">
+                        <label
+                          className="_social_login_label _mar_b8"
+                          htmlFor="email"
+                        >
+                          Email
+                        </label>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={form.email}
+                          onChange={handleChange}
+                          className="form-control _social_login_input"
+                          autoComplete="email"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="col-xl-12 col-lg-12 col-md-12 col-sm-12">
+                      <div className="_social_login_form_input _mar_b14">
+                        <label
+                          className="_social_login_label _mar_b8"
+                          htmlFor="password"
+                        >
+                          Password
+                        </label>
+                        <input
+                          id="password"
+                          name="password"
+                          type="password"
+                          value={form.password}
+                          onChange={handleChange}
+                          className="form-control _social_login_input"
+                          autoComplete="current-password"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="row">
+                    <div className="col-lg-6 col-xl-6 col-md-6 col-sm-12">
+                      <div className="form-check _social_login_form_check">
+                        <input
+                          className="form-check-input _social_login_form_check_input"
+                          type="checkbox"
+                          id="rememberMe"
+                          checked={rememberMe}
+                          onChange={(event) => setRememberMe(event.target.checked)}
+                        />
+                        <label
+                          className="form-check-label _social_login_form_check_label"
+                          htmlFor="rememberMe"
+                        >
+                          Remember me
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="col-lg-6 col-xl-6 col-md-6 col-sm-12">
+                      <div className="_social_login_form_left">
+                        <button
+                          type="button"
+                          className="_social_login_form_left_para border-0 bg-transparent p-0"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="row">
+                    <div className="col-lg-12 col-md-12 col-xl-12 col-sm-12">
+                      <div className="_social_login_form_btn _mar_t40 _mar_b60">
+                        <button
+                          type="submit"
+                          className="_social_login_form_btn_link _btn1"
+                          disabled={loading}
+                        >
+                          {loading ? "Logging in..." : "Login now"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="row">
+                  <div className="col-xl-12 col-lg-12 col-md-12 col-sm-12">
+                    <div className="_social_login_bottom_txt">
+                      <p className="_social_login_bottom_txt_para">
+                        Dont have an account? <Link to="/register">Create New Account</Link>
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              <button
-                type="submit"
-                className="mt-6 w-full rounded-md bg-[#1890FF] px-6 py-3 text-base font-medium text-white transition hover:shadow-[0_8px_24px_rgba(24,144,255,0.24)]"
-              >
-                Login now
-              </button>
-            </form>
-
-            <p className="mt-8 text-center text-sm leading-5 text-[#2D3748]">
-              Dont have an account?{" "}
-              <Link
-                to="/register"
-                className="font-medium text-[#1890FF] transition hover:opacity-80"
-              >
-                Create New Account
-              </Link>
-            </p>
+            </div>
           </div>
         </div>
       </div>
