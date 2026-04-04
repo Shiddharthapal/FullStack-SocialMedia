@@ -38,6 +38,10 @@ const stories = [
   },
 ];
 
+const moreStories = [
+  { id: 5, name: "More Stories" },
+];
+
 const people = [
   { id: 1, image: "/images/people1.png", name: "Steve Jobs", title: "CEO of Apple" },
   { id: 2, image: "/images/people2.png", name: "Ryan Roslansky", title: "CEO of Linkedin" },
@@ -362,13 +366,15 @@ export default function Home() {
                                       : "_public_story_img"
                                   }
                                 />
-                                <div className="_feed_inner_story_avatar">
-                                  <img
-                                    src={story.avatar}
-                                    alt={`${story.name} avatar`}
-                                    className="_feed_inner_story_avatar_img"
-                                  />
-                                </div>
+                                {!story.isOwnStory ? (
+                                  <div className="_feed_inner_story_avatar">
+                                    <img
+                                      src={story.avatar}
+                                      alt={`${story.name} avatar`}
+                                      className="_feed_inner_story_avatar_img"
+                                    />
+                                  </div>
+                                ) : null}
                                 {story.isOwnStory ? (
                                   <div className="_feed_inner_story_btn">
                                     <button
@@ -402,6 +408,32 @@ export default function Home() {
                           </div>
                         ))}
                       </div>
+                      {moreStories.length > 0 ? (
+                        <div className="_feed_inner_story_arrow">
+                          <button
+                            type="button"
+                            className="_feed_inner_story_arrow_btn"
+                            aria-label="View more stories"
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="16"
+                              height="16"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M9 6l6 6-6 6"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16">
