@@ -24,6 +24,7 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -186,16 +187,86 @@ export default function Login() {
                         >
                           Password
                         </label>
-                        <input
-                          id="password"
-                          name="password"
-                          type="password"
-                          value={form.password}
-                          onChange={handleChange}
-                          className="form-control _social_login_input"
-                          autoComplete="current-password"
-                          required
-                        />
+                        <div className="_social_login_password_wrap">
+                          <input
+                            id="password"
+                            name="password"
+                            type={showPassword ? "text" : "password"}
+                            value={form.password}
+                            onChange={handleChange}
+                            className="form-control _social_login_input _social_login_input_password"
+                            autoComplete="current-password"
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="_social_login_password_toggle"
+                            onClick={() => setShowPassword((value) => !value)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                            aria-pressed={showPassword}
+                          >
+                            {showPassword ? (
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="18"
+                                height="18"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M3 3l18 18"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d="M10.58 10.58a2 2 0 102.83 2.83"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M9.88 5.09A10.94 10.94 0 0112 4.91c5.05 0 8.27 3.11 9.5 7.09a.79.79 0 010 .5 12.57 12.57 0 01-2.79 4.45"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M6.61 6.62A12.76 12.76 0 002.5 12a.79.79 0 000 .5c1.23 3.98 4.45 7.09 9.5 7.09a11.3 11.3 0 004.11-.74"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            ) : (
+                              <svg
+                                viewBox="0 0 24 24"
+                                width="18"
+                                height="18"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M2.5 12a.79.79 0 000 .5c1.23 3.98 4.45 7.09 9.5 7.09s8.27-3.11 9.5-7.09a.79.79 0 000-.5c-1.23-3.98-4.45-7.09-9.5-7.09S3.73 8.02 2.5 12z"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <circle
+                                  cx="12"
+                                  cy="12"
+                                  r="3"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
