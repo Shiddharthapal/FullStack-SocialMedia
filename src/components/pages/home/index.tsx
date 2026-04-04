@@ -35,6 +35,64 @@ function preventDefault(event: FormEvent) {
   event.preventDefault();
 }
 
+function HomeNavIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        className="_nav_icon_stroke"
+        d="M3 10.5 12 3l9 7.5"
+      />
+      <path
+        className="_nav_icon_stroke"
+        d="M5 9.5V20h14V9.5"
+      />
+      <path
+        className="_nav_icon_stroke"
+        d="M10 20v-5h4v5"
+      />
+    </svg>
+  );
+}
+
+function FriendsNavIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        className="_nav_icon_stroke"
+        d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"
+      />
+      <path className="_nav_icon_stroke" d="M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+      <path className="_nav_icon_stroke" d="M21 21v-2a4 4 0 0 0-3-3.87" />
+      <path className="_nav_icon_stroke" d="M16.5 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function NotificationsNavIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        className="_nav_icon_stroke"
+        d="M15 17H5.5a1.5 1.5 0 0 1-1.2-2.4L6 12.5V9a6 6 0 1 1 12 0v3.5l1.7 2.1a1.5 1.5 0 0 1-1.2 2.4H19"
+      />
+      <path className="_nav_icon_stroke" d="M9.5 17a2.5 2.5 0 0 0 5 0" />
+    </svg>
+  );
+}
+
+function MessageNavIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        className="_nav_icon_stroke"
+        d="M21 15a3 3 0 0 1-3 3H8l-5 3V6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3Z"
+      />
+      <path className="_nav_icon_stroke" d="M8 9h8" />
+      <path className="_nav_icon_stroke" d="M8 13h5" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -58,11 +116,42 @@ export default function Home() {
                 </form>
               </div>
               <ul className="navbar-nav mb-2 mb-lg-0 _header_nav_list ms-auto _mar_r8">
-                <li className="nav-item _header_nav_item"><Link className="nav-link _header_nav_link_active _header_nav_link" to="/home">Home</Link></li>
-                <li className="nav-item _header_nav_item"><a className="nav-link _header_nav_link" href="#0">Friends</a></li>
                 <li className="nav-item _header_nav_item">
-                  <button type="button" className="nav-link _header_nav_link _header_notify_btn border-0 bg-transparent" onClick={() => setIsNotificationsOpen((value) => !value)}>
-                    Notifications <span className="_counting">{notifications.length}</span>
+                  <Link
+                    className="nav-link _header_nav_link _header_nav_link_active"
+                    to="/home"
+                    aria-label="Home"
+                    title="Home"
+                  >
+                    <span className="_header_nav_link_icon">
+                      <HomeNavIcon />
+                    </span>
+                  </Link>
+                </li>
+                <li className="nav-item _header_nav_item">
+                  <a
+                    className="nav-link _header_nav_link"
+                    href="#0"
+                    aria-label="Friends"
+                    title="Friends"
+                  >
+                    <span className="_header_nav_link_icon">
+                      <FriendsNavIcon />
+                    </span>
+                  </a>
+                </li>
+                <li className="nav-item _header_nav_item">
+                  <button
+                    type="button"
+                    className={`nav-link _header_nav_link _header_notify_btn border-0 bg-transparent${isNotificationsOpen ? " _header_notify_btn_active" : ""}`}
+                    onClick={() => setIsNotificationsOpen((value) => !value)}
+                    aria-label="Notifications"
+                    title="Notifications"
+                  >
+                    <span className="_header_nav_link_icon">
+                      <NotificationsNavIcon />
+                    </span>
+                    <span className="_counting">{notifications.length}</span>
                     <div className={`_notification_dropdown${isNotificationsOpen ? " show" : ""}`}>
                       <div className="_notifications_content">
                         <h4 className="_notifications_content_title">Notifications</h4>
@@ -83,12 +172,36 @@ export default function Home() {
                     </div>
                   </button>
                 </li>
+                <li className="nav-item _header_nav_item">
+                  <a
+                    className="nav-link _header_nav_link"
+                    href="#0"
+                    aria-label="Message"
+                    title="Message"
+                  >
+                    <span className="_header_nav_link_icon">
+                      <MessageNavIcon />
+                    </span>
+                  </a>
+                </li>
               </ul>
               <div className="_header_nav_profile">
                 <div className="_header_nav_profile_image"><img src="/images/profile.png" alt="Profile" className="_nav_profile_img" /></div>
                 <div className="_header_nav_dropdown">
                   <p className="_header_nav_para">Dylan Field</p>
-                  <button className="_header_nav_dropdown_btn _dropdown_toggle" type="button" onClick={() => setIsProfileOpen((value) => !value)}>Menu</button>
+                  <button
+                    className={`_header_nav_dropdown_btn _dropdown_toggle${isProfileOpen ? " _header_nav_dropdown_btn_active" : ""}`}
+                    type="button"
+                    onClick={() => setIsProfileOpen((value) => !value)}
+                    aria-label="Open profile menu"
+                    title="Profile menu"
+                  >
+                    <img
+                      src="/images/Caretdown.svg"
+                      alt=""
+                      className="_header_nav_dropdown_icon"
+                    />
+                  </button>
                 </div>
                 <div className={`_nav_profile_dropdown _profile_dropdown${isProfileOpen ? " show" : ""}`}>
                   <div className="_nav_profile_dropdown_info">
@@ -121,10 +234,47 @@ export default function Home() {
         <div className="_mobile_navigation_bottom_wrapper">
           <div className="_mobile_navigation_bottom_wrap">
             <ul className="_mobile_navigation_bottom_list">
-              <li className="_mobile_navigation_bottom_item"><Link to="/home" className="_mobile_navigation_bottom_link _mobile_navigation_bottom_link_active">Home</Link></li>
-              <li className="_mobile_navigation_bottom_item"><a href="#0" className="_mobile_navigation_bottom_link">Friends</a></li>
-              <li className="_mobile_navigation_bottom_item"><a href="#0" className="_mobile_navigation_bottom_link">Alerts</a></li>
-              <li className="_mobile_navigation_bottom_item"><a href="#0" className="_mobile_navigation_bottom_link">Chat</a></li>
+              <li className="_mobile_navigation_bottom_item">
+                <Link
+                  to="/home"
+                  className="_mobile_navigation_bottom_link _mobile_navigation_bottom_link_active"
+                  aria-label="Home"
+                  title="Home"
+                >
+                  <HomeNavIcon />
+                </Link>
+              </li>
+              <li className="_mobile_navigation_bottom_item">
+                <a
+                  href="#0"
+                  className="_mobile_navigation_bottom_link"
+                  aria-label="Friends"
+                  title="Friends"
+                >
+                  <FriendsNavIcon />
+                </a>
+              </li>
+              <li className="_mobile_navigation_bottom_item">
+                <a
+                  href="#0"
+                  className="_mobile_navigation_bottom_link"
+                  aria-label="Notifications"
+                  title="Notifications"
+                >
+                  <NotificationsNavIcon />
+                  <span className="_counting">{notifications.length}</span>
+                </a>
+              </li>
+              <li className="_mobile_navigation_bottom_item">
+                <a
+                  href="#0"
+                  className="_mobile_navigation_bottom_link"
+                  aria-label="Message"
+                  title="Message"
+                >
+                  <MessageNavIcon />
+                </a>
+              </li>
             </ul>
           </div>
         </div>
