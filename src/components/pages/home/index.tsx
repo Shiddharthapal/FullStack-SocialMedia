@@ -8,10 +8,34 @@ const notifications = [
 ];
 
 const stories = [
-  { id: 1, image: "/images/card_ppl1.png", name: "Your Story" },
-  { id: 2, image: "/images/card_ppl2.png", name: "Ryan Roslansky" },
-  { id: 3, image: "/images/card_ppl3.png", name: "Dylan Field" },
-  { id: 4, image: "/images/card_ppl4.png", name: "Steve Jobs" },
+  {
+    id: 1,
+    image: "/images/card_ppl1.png",
+    avatar: "/images/profile.png",
+    name: "Your Story",
+    isOwnStory: true,
+  },
+  {
+    id: 2,
+    image: "/images/card_ppl2.png",
+    avatar: "/images/people2.png",
+    name: "Ryan Roslansky",
+    isOwnStory: false,
+  },
+  {
+    id: 3,
+    image: "/images/card_ppl3.png",
+    avatar: "/images/people3.png",
+    name: "Dylan Field",
+    isOwnStory: false,
+  },
+  {
+    id: 4,
+    image: "/images/card_ppl4.png",
+    avatar: "/images/people1.png",
+    name: "Steve Jobs",
+    isOwnStory: false,
+  },
 ];
 
 const people = [
@@ -319,11 +343,59 @@ export default function Home() {
                       <div className="row">
                         {stories.map((story) => (
                           <div key={story.id} className="col-xl-3 col-lg-3 col-md-4 col-sm-4 col">
-                            <div className={`${story.id === 1 ? "_feed_inner_profile_story" : "_feed_inner_public_story"} _b_radious6`}>
-                              <div className={story.id === 1 ? "_feed_inner_profile_story_image" : "_feed_inner_public_story_image"}>
-                                <img src={story.image} alt={story.name} className={story.id === 1 ? "_profile_story_img" : "_public_story_img"} />
-                                <div className={story.id === 1 ? "_feed_inner_story_txt" : "_feed_inner_pulic_story_txt"}>
-                                  <p className={story.id === 1 ? "_feed_inner_story_para" : "_feed_inner_pulic_story_para"}>{story.name}</p>
+                            <div
+                              className={`${story.isOwnStory ? "_feed_inner_profile_story" : "_feed_inner_public_story"} _b_radious6`}
+                            >
+                              <div
+                                className={
+                                  story.isOwnStory
+                                    ? "_feed_inner_profile_story_image"
+                                    : "_feed_inner_public_story_image"
+                                }
+                              >
+                                <img
+                                  src={story.image}
+                                  alt={story.name}
+                                  className={
+                                    story.isOwnStory
+                                      ? "_profile_story_img"
+                                      : "_public_story_img"
+                                  }
+                                />
+                                <div className="_feed_inner_story_avatar">
+                                  <img
+                                    src={story.avatar}
+                                    alt={`${story.name} avatar`}
+                                    className="_feed_inner_story_avatar_img"
+                                  />
+                                </div>
+                                {story.isOwnStory ? (
+                                  <div className="_feed_inner_story_btn">
+                                    <button
+                                      type="button"
+                                      className="_feed_inner_story_btn_link"
+                                      aria-label="Add story"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                ) : null}
+                                <div
+                                  className={
+                                    story.isOwnStory
+                                      ? "_feed_inner_story_txt"
+                                      : "_feed_inner_pulic_story_txt"
+                                  }
+                                >
+                                  <p
+                                    className={
+                                      story.isOwnStory
+                                        ? "_feed_inner_story_para"
+                                        : "_feed_inner_pulic_story_para"
+                                    }
+                                  >
+                                    {story.name}
+                                  </p>
                                 </div>
                               </div>
                             </div>
