@@ -212,6 +212,7 @@ export default function Register() {
                           value={form.email}
                           onChange={handleChange}
                           className="form-control _social_registration_input"
+        
                           required
                         />
                       </div>
@@ -232,6 +233,7 @@ export default function Register() {
                           value={form.password}
                           onChange={handleChange}
                           className="form-control _social_registration_input"
+                          autoComplete="new-password"
                           required
                         />
                       </div>
@@ -252,6 +254,7 @@ export default function Register() {
                           value={form.confirmPassword}
                           onChange={handleChange}
                           className="form-control _social_registration_input"
+                          autoComplete="new-password"
                           required
                         />
                       </div>
