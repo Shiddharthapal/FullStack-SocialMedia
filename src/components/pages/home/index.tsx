@@ -1289,7 +1289,7 @@ export default function Home() {
                   />
                 </div>
                 <div className="_header_nav_dropdown">
-                  <p className="_header_nav_para">Dylan Field</p>
+                  <p className="_header_nav_para">{user?.firstName} {user?.lastName}</p>
                   <button
                     className={`_header_nav_dropdown_btn _dropdown_toggle${isProfileOpen ? " _header_nav_dropdown_btn_active" : ""}`}
                     type="button"
