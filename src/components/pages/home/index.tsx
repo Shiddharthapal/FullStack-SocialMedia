@@ -9,6 +9,24 @@ import type { Post } from "@/types/post";
 import { useAppSelector } from "@/redux/hooks";
 import { Link } from "react-router-dom";
 
+interface FileUpload {
+  _id?: string;
+  file: File;
+  filename: string;
+  name: string;
+  documentName: string;
+  originalName: string;
+  fileType: string;
+  fileSize: number;
+  path: string;
+  url: string;
+  checksum?: string;
+  uploadedAt?: Date;
+  deletedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 const notifications = [
   {
     id: 1,
@@ -321,9 +339,11 @@ function PenComposerIcon() {
 
 export default function Home() {
   const { user } = useAppSelector((state) => state.auth);
+  console.log("user ==> ", user);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [composerText, setComposerText] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
@@ -331,9 +351,8 @@ export default function Home() {
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
   const [composerError, setComposerError] = useState("");
   const [composerSuccess, setComposerSuccess] = useState("");
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [selectedImagePreview, setSelectedImagePreview] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedUpload = uploadedFiles[0] ?? null;
 
   // useEffect(() => {
   //   let ignore = false;
@@ -375,19 +394,22 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      if (selectedImagePreview) {
-        URL.revokeObjectURL(selectedImagePreview);
-      }
+      uploadedFiles.forEach((file) => {
+        if (file.url.startsWith("blob:")) {
+          URL.revokeObjectURL(file.url);
+        }
+      });
     };
-  }, [selectedImagePreview]);
+  }, [uploadedFiles]);
 
-  const clearSelectedImage = () => {
-    if (selectedImagePreview) {
-      URL.revokeObjectURL(selectedImagePreview);
-    }
+  const clearUploadedFiles = () => {
+    uploadedFiles.forEach((file) => {
+      if (file.url.startsWith("blob:")) {
+        URL.revokeObjectURL(file.url);
+      }
+    });
 
-    setSelectedImage(null);
-    setSelectedImagePreview("");
+    setUploadedFiles([]);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -408,13 +430,23 @@ export default function Home() {
     }
 
     setComposerError("");
+    clearUploadedFiles();
 
-    if (selectedImagePreview) {
-      URL.revokeObjectURL(selectedImagePreview);
-    }
+    const previewUrl = URL.createObjectURL(file);
 
-    setSelectedImage(file);
-    setSelectedImagePreview(URL.createObjectURL(file));
+    setUploadedFiles([
+      {
+        file,
+        filename: file.name,
+        name: file.name,
+        documentName: file.name.replace(/\.[^/.]+$/, ""),
+        originalName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        path: "",
+        url: previewUrl,
+      },
+    ]);
   };
 
   const handleCreatePost = async (event: FormEvent<HTMLFormElement>) => {
@@ -439,11 +471,17 @@ export default function Home() {
 
       const formData = new FormData();
       formData.append("authorId", user._id);
+      console.log("user._id ==> ", user._id);
       formData.append("title", trimmedText);
       formData.append("visibility", "Public");
+      uploadedFiles.forEach((fileData) => {
+        formData.append(`files`, fileData.file);
+        formData.append(`documentNames`, fileData.documentName);
+        formData.append(`originalNames`, fileData.originalName);
+      });
 
-      if (selectedImage) {
-        formData.append("image", selectedImage);
+      if (selectedUpload?.file) {
+        formData.append("image", selectedUpload.file);
       }
 
       const response = await fetch("/api/posts", {
@@ -458,7 +496,7 @@ export default function Home() {
 
       setPosts((currentPosts) => [data.post as Post, ...currentPosts]);
       setComposerText("");
-      clearSelectedImage();
+      clearUploadedFiles();
       setComposerSuccess("Post created successfully.");
     } catch (error) {
       setComposerError(
@@ -1173,21 +1211,21 @@ export default function Home() {
                         </div>
                       ) : null}
 
-                      {selectedImagePreview ? (
+                      {selectedUpload ? (
                         <div className="mt-3 rounded overflow-hidden border">
                           <img
-                            src={selectedImagePreview}
-                            alt={selectedImage?.name || "Selected post image"}
+                            src={selectedUpload.url}
+                            alt={selectedUpload.name || "Selected post image"}
                             className="_time_img"
                           />
                           <div className="d-flex align-items-center justify-content-between p-3">
                             <span className="small text-break">
-                              {selectedImage?.name}
+                              {selectedUpload.name}
                             </span>
                             <button
                               type="button"
                               className="btn btn-sm btn-outline-danger"
-                              onClick={clearSelectedImage}
+                              onClick={clearUploadedFiles}
                               disabled={isSubmittingPost}
                             >
                               Remove
@@ -1206,7 +1244,7 @@ export default function Home() {
                               disabled={isSubmittingPost}
                             >
                               <PhotoComposerIcon />
-                              {selectedImage ? "Change Photo" : "Photo"}
+                              {selectedUpload ? "Change Photo" : "Photo"}
                             </button>
                           </div>
                           <div className="_feed_inner_text_area_bottom_video _feed_common">
