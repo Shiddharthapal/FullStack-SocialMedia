@@ -412,6 +412,7 @@ export default function Home() {
   const { user } = useAppSelector((state) => state.auth);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isVisibilityMenuOpen, setIsVisibilityMenuOpen] = useState(false);
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [composerText, setComposerText] = useState("");
@@ -652,6 +653,7 @@ export default function Home() {
       setPosts((currentPosts) => [data.post as Post, ...currentPosts]);
       setComposerText("");
       setPostVisibility("Public");
+      setIsVisibilityMenuOpen(false);
       clearUploadedFiles();
       setComposerSuccess("Post created successfully.");
     } catch (error) {
@@ -1738,29 +1740,58 @@ export default function Home() {
                       <div className="_feed_inner_text_area_bottom">
                         <div className="_feed_inner_text_area_item">
                           <div className="_feed_common">
-                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                            <div className="position-relative">
                               <button
                                 type="button"
-                                className={`btn btn-sm ${postVisibility === "Public" ? "btn-primary" : "btn-outline-secondary"}`}
-                                onClick={() => setPostVisibility("Public")}
+                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
+                                onClick={() =>
+                                  setIsVisibilityMenuOpen((value) => !value)
+                                }
                                 disabled={isSubmittingPost}
+                                aria-haspopup="menu"
+                                aria-expanded={isVisibilityMenuOpen}
                               >
                                 <span className="d-inline-flex align-items-center gap-1">
-                                  <PublicVisibilityIcon />
-                                  <span>Public</span>
+                                  {postVisibility === "Public" ? (
+                                    <PublicVisibilityIcon />
+                                  ) : (
+                                    <OnlyMeVisibilityIcon />
+                                  )}
+                                  <span>{postVisibility}</span>
                                 </span>
+                                <span aria-hidden="true">▼</span>
                               </button>
-                              <button
-                                type="button"
-                                className={`btn btn-sm ${postVisibility === "Only Me" ? "btn-primary" : "btn-outline-secondary"}`}
-                                onClick={() => setPostVisibility("Only Me")}
-                                disabled={isSubmittingPost}
-                              >
-                                <span className="d-inline-flex align-items-center gap-1">
-                                  <OnlyMeVisibilityIcon />
-                                  <span>Only Me</span>
-                                </span>
-                              </button>
+
+                              {isVisibilityMenuOpen ? (
+                                <div
+                                  className="dropdown-menu show mt-2 p-2"
+                                  style={{ minWidth: "11rem" }}
+                                  role="menu"
+                                >
+                                  <button
+                                    type="button"
+                                    className="dropdown-item d-flex align-items-center gap-2 rounded"
+                                    onClick={() => {
+                                      setPostVisibility("Public");
+                                      setIsVisibilityMenuOpen(false);
+                                    }}
+                                  >
+                                    <PublicVisibilityIcon />
+                                    <span>Public</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dropdown-item d-flex align-items-center gap-2 rounded"
+                                    onClick={() => {
+                                      setPostVisibility("Only Me");
+                                      setIsVisibilityMenuOpen(false);
+                                    }}
+                                  >
+                                    <OnlyMeVisibilityIcon />
+                                    <span>Only Me</span>
+                                  </button>
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                           <div className="_feed_inner_text_area_bottom_photo _feed_common">
