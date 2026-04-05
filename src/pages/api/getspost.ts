@@ -8,6 +8,29 @@ const headers = {
 
 const DEFAULT_POST_AVATAR = "/images/post_img.png";
 
+function serializeComment(commentDocument: any) {
+  const comment = typeof commentDocument?.toJSON === "function"
+    ? commentDocument.toJSON()
+    : commentDocument;
+
+  return {
+    id: String(comment?.id ?? comment?._id ?? ""),
+    postId: String(comment?.postId ?? ""),
+    author: {
+      id: String(comment?.author?.id ?? ""),
+      name: String(comment?.author?.name ?? ""),
+      avatar: String(comment?.author?.avatar ?? DEFAULT_POST_AVATAR),
+    },
+    content: String(comment?.content ?? ""),
+    createdAt: comment?.createdAt
+      ? new Date(comment.createdAt).toISOString()
+      : new Date().toISOString(),
+    updatedAt: comment?.updatedAt
+      ? new Date(comment.updatedAt).toISOString()
+      : undefined,
+  };
+}
+
 function serializePost(postDocument: any) {
   const post = typeof postDocument.toJSON === "function"
     ? postDocument.toJSON()
@@ -37,6 +60,9 @@ function serializePost(postDocument: any) {
       ? String(post.commentPreview)
       : undefined,
     topReactions: Array.isArray(post.topReactions) ? post.topReactions : [],
+    comments: Array.isArray(post.comments)
+      ? post.comments.map(serializeComment)
+      : [],
   };
 }
 

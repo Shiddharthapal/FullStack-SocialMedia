@@ -24,6 +24,7 @@ function createDataUrl(bytes: Buffer, mimeType: string) {
   return `data:${mimeType};base64,${bytes.toString("base64")}`;
 }
 
+
 async function storePostImage(file: File) {
   const mimeType = file.type || "application/octet-stream";
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -72,6 +73,9 @@ function serializePost(postDocument: any) {
       ? String(post.commentPreview)
       : undefined,
     topReactions: Array.isArray(post.topReactions) ? post.topReactions : [],
+    comments: Array.isArray(post.comments)
+      ? post.comments.map(serializeComment)
+      : [],
   };
 }
 
@@ -164,7 +168,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const post = await Post.create({
       author: {
-        id: String(user._id),
+     authorid: String(user._id),
         name: authorName,
         avatar: DEFAULT_POST_AVATAR,
       },
@@ -176,6 +180,7 @@ export const POST: APIRoute = async ({ request }) => {
       commentCount: 0,
       shareCount: 0,
       topReactions: [],
+      comments: [],
     });
 
     return new Response(

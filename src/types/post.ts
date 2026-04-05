@@ -5,7 +5,7 @@ export type PostVisibility = "Public" | "Friends" | "Only Me";
 export type ReactionType = "Like" | "Love" | "Haha" | "Wow" | "Sad" | "Angry";
 
 export interface PostAuthor {
-  id: string;
+  authorid: string;
   name: string;
   avatar: string;
 }
@@ -19,7 +19,7 @@ export interface PostReaction {
 }
 
 export interface PostComment {
-  id: string;
+    _id:string;
   postId: string;
   author: PostAuthor;
   content: string;
@@ -28,37 +28,28 @@ export interface PostComment {
 }
 
 export interface PostShare {
-  id: string;
+  _id: string;
   postId: string;
   userId: string;
   createdAt: string;
 }
 
 export interface Post {
-  id: string;
+    _id: string;
   author: PostAuthor;
   title: string;
-  image?: string; // optional — post may not have an image
+  image?: string; 
   visibility: PostVisibility;
-  time: string; // e.g. "2 hours ago" or ISO date string
-  createdAt: string; // ISO date string for DB sorting
-  updatedAt?: string;
-
-  // counts (denormalized for fast reads)
+  time: string; 
   reactionCount: number;
   commentCount: number;
   shareCount: number;
   path: string;
-//   url: string;
-//   filename: string;
-//   originalName: string;
-//   documentName: string;
-
-  // preview of latest comment shown under the post
-  commentPreview?: string; // maps to post.preview in component
-
-  // reaction summary icons shown
+  commentPreview?: string; 
   topReactions: ReactionType[];
+  comments?: PostComment[];
+  createdAt: string; 
+  updatedAt?: string;
 }
 
 // For creating a new post
@@ -76,4 +67,10 @@ export interface UpdatePostInput {
   image?: string;
   visibility?: PostVisibility;
   updatedAt: string;
+}
+
+export interface CreatePostCommentInput {
+  postId: string;
+  authorId: string;
+  content: string;
 }
