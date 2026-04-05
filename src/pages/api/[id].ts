@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import userDetails from "@/model/user";
+import userDetails from "@/model/User";
 
 export const GET: APIRoute = async ({ params, request }) => {
   const headers = {
@@ -18,7 +18,7 @@ export const GET: APIRoute = async ({ params, request }) => {
       {
         status: 200,
         headers,
-      }
+      },
     );
   } catch (error) {
     return new Response(
@@ -30,7 +30,7 @@ export const GET: APIRoute = async ({ params, request }) => {
       {
         status: 400,
         headers,
-      }
+      },
     );
   }
 };

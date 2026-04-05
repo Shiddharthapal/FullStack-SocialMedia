@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import UserDetails from "@/model/user";
+import UserDetails from "@/model/User";
 import jwt from "jsonwebtoken";
 
 export const POST: APIRoute = async ({ request }) => {
