@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
 import { bunnyStorageService } from "@/lib/bunny-cdn";
-import Post from "@/model/Post";
+import Post from "@/model/post";
 import UserDetails from "@/model/User";
 
 const headers = {
@@ -75,35 +75,6 @@ function serializePost(postDocument: any) {
   };
 }
 
-export const GET: APIRoute = async () => {
-  try {
-    await connect();
-
-    const posts = await Post.find().sort({ createdAt: -1 });
-
-    return new Response(
-      JSON.stringify({
-        posts: posts.map(serializePost),
-      }),
-      {
-        status: 200,
-        headers,
-      },
-    );
-  } catch (error) {
-    console.error("Fetch posts error:", error);
-
-    return new Response(
-      JSON.stringify({
-        message: "Failed to fetch posts",
-      }),
-      {
-        status: 500,
-        headers,
-      },
-    );
-  }
-};
 
 export const POST: APIRoute = async ({ request }) => {
   try {

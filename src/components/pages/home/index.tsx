@@ -360,7 +360,7 @@ export default function Home() {
     const fetchPosts = async () => {
       try {
         setFeedError("");
-        const response = await fetch("/api/posts");
+        const response = await fetch("/api/getspost");
         const data = await response.json();
         console.log("data ==> ", data);
         setPosts(Array.isArray(data.posts) ? data.posts : []);
