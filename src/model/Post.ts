@@ -1,20 +1,20 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose from "mongoose";
 import type { PostVisibility, ReactionType } from "@/types/post";
 
 const POST_VISIBILITY_VALUES = ["Public", "Friends", "Only Me"] as const satisfies readonly PostVisibility[];
 const REACTION_TYPE_VALUES = ["Like", "Love", "Haha", "Wow", "Sad", "Angry"] as const satisfies readonly ReactionType[];
 
 
-const postAuthorSchema = new Schema(
+const postAuthorSchema = new mongoose.Schema(
   {
-    authorid: { type: String },
+    id:       { type: String },
     name:     { type: String },
     avatar:   { type: String },
   },
   { _id: false } 
 );
 
-const postCommentSchema = new Schema(
+const postCommentSchema = new mongoose.Schema(
   {
     postId: { type: String },
     author: { type: postAuthorSchema },
@@ -25,7 +25,7 @@ const postCommentSchema = new Schema(
   },
 );
 
-const postSchema = new Schema(
+const postSchema =new mongoose.Schema(
   {
     author:         { type: postAuthorSchema },
     title:          { type: String, minlength: [1, "Post title cannot be empty"] },
@@ -44,12 +44,6 @@ const postSchema = new Schema(
   },
 );
 
-postSchema.virtual("id").get(function () {
-  return this._id.toString();
-});
-
-postSchema.index({ "author.authorid": 1 }); // ✅ FIXED from "author.id"
-postSchema.index({ visibility: 1, createdAt: -1 });
 
 const Post = mongoose.models.Post || mongoose.model("Post", postSchema);
 export default Post;

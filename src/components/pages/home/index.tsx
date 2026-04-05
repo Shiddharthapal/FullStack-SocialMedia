@@ -1083,7 +1083,7 @@ export default function Home() {
             <div className="_feed_inner_comment_box">
               <form
                 className="_feed_inner_comment_box_form"
-                onSubmit={(event) => handleCreateComment(event, post._id)}
+                onSubmit={(event) => handleCreateComment(event, post.id)}
               >
                 <div className="_feed_inner_comment_box_content">
                   <div className="_feed_inner_comment_box_content_image">
@@ -1097,11 +1097,11 @@ export default function Home() {
                     <textarea
                       className="form-control _comment_textarea"
                       placeholder="Write a comment"
-                      value={commentDrafts[post._id] ?? ""}
+                      value={commentDrafts[post.id] ?? ""}
                       onChange={(event) =>
-                        handleCommentDraftChange(post._id, event.target.value)
+                        handleCommentDraftChange(post.id, event.target.value)
                       }
-                      disabled={submittingCommentPostId === post._id}
+                      disabled={submittingCommentPostId === post.id}
                     />
                   </div>
                 </div>
@@ -1110,8 +1110,8 @@ export default function Home() {
                     type="submit"
                     className="_feed_inner_comment_box_icon_btn"
                     disabled={
-                      submittingCommentPostId === post._id ||
-                      !(commentDrafts[post._id] ?? "").trim()
+                      submittingCommentPostId === post.id ||
+                      !(commentDrafts[post.id] ?? "").trim()
                     }
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
@@ -1122,17 +1122,17 @@ export default function Home() {
                     type="submit"
                     className="btn btn-primary btn-sm ms-2"
                     disabled={
-                      submittingCommentPostId === post._id ||
-                      !(commentDrafts[post._id] ?? "").trim()
+                      submittingCommentPostId === post.id ||
+                      !(commentDrafts[post.id] ?? "").trim()
                     }
                   >
-                    {submittingCommentPostId === post._id ? "Sending..." : "Send"}
+                    {submittingCommentPostId === post.id ? "Sending..." : "Send"}
                   </button>
                 </div>
               </form>
-              {commentErrors[post._id] ? (
+              {commentErrors[post.id] ? (
                 <p className="text-danger small mt-2 mb-0">
-                  {commentErrors[post._id]}
+                  {commentErrors[post.id]}
                 </p>
               ) : null}
             </div>

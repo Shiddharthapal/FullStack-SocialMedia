@@ -17,7 +17,7 @@ function serializeComment(commentDocument: any) {
     id: String(comment?.id ?? comment?._id ?? ""),
     postId: String(comment?.postId ?? ""),
     author: {
-      id: String(comment?.author?.id ?? ""),
+      id: String(comment?.author?.id ?? comment?.author?.authorid ?? ""),
       name: String(comment?.author?.name ?? ""),
       avatar: String(comment?.author?.avatar ?? DEFAULT_POST_AVATAR),
     },
@@ -39,7 +39,7 @@ function serializePost(postDocument: any) {
   return {
     id: String(post.id ?? post._id),
     author: {
-      id: String(post.author?.id ?? ""),
+      id: String(post.author?.id ?? post.author?.authorid ?? ""),
       name: String(post.author?.name ?? ""),
       avatar: String(post.author?.avatar ?? DEFAULT_POST_AVATAR),
     },

@@ -47,7 +47,7 @@ export interface Post {
   path: string;
   commentPreview?: string; 
   topReactions: ReactionType[];
-  comments?: PostComment[];
+  comments: PostComment[];
   createdAt: string; 
   updatedAt?: string;
 }

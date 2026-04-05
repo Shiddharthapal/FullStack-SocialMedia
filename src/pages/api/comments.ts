@@ -21,7 +21,7 @@ function serializeComment(commentDocument: any) {
     id: String(comment?.id ?? comment?._id ?? ""),
     postId: String(comment?.postId ?? ""),
     author: {
-      id: String(comment?.author?.authorid ?? ""), // ✅ FIXED
+      id: String(comment?.author?.id ?? comment?.author?.authorid ?? ""),
       name: String(comment?.author?.name ?? ""),
       avatar: String(comment?.author?.avatar ?? DEFAULT_POST_AVATAR),
     },
@@ -44,9 +44,9 @@ function serializePost(postDocument: any) {
   return {
     id: String(post?.id ?? post?._id ?? ""),
     author: {
-      id: String(post.author?.authorid ?? ""), // ✅ FIXED
-      name: String(post.author?.name ?? ""),
-      avatar: String(post.author?.avatar ?? DEFAULT_POST_AVATAR),
+      id: String(post?.author?.id ?? post?.author?.authorid ?? ""),
+      name: String(post?.author?.name ?? ""),
+      avatar: String(post?.author?.avatar ?? DEFAULT_POST_AVATAR),
     },
     title: String(post?.title ?? ""),
     image: post?.image ? String(post.image) : undefined,
@@ -74,35 +74,38 @@ function serializePost(postDocument: any) {
 export const PATCH: APIRoute = async ({ request }) => {
   try {
     const { postId, authorId, content } = await request.json();
+    const trimmedPostId = String(postId ?? "").trim();
+    const trimmedAuthorId = String(authorId ?? "").trim();
+    const trimmedContent = String(content ?? "").trim();
 
-    if (!postId) {
+    if (!trimmedPostId) {
       return new Response(JSON.stringify({ message: "Post is required" }), {
         status: 400,
         headers,
       });
     }
 
-    if (!authorId) {
+    if (!trimmedAuthorId) {
       return new Response(JSON.stringify({ message: "Author is required" }), {
         status: 400,
         headers,
       });
     }
 
-    if (!content) {
+    if (!trimmedContent) {
       return new Response(
         JSON.stringify({ message: "Comment cannot be empty" }),
         { status: 400, headers },
       );
     }
 
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
+    if (!mongoose.Types.ObjectId.isValid(trimmedPostId)) {
       return new Response(JSON.stringify({ message: "Invalid post ID" }), {
         status: 400,
         headers,
       });
     }
-    if (!mongoose.Types.ObjectId.isValid(authorId)) {
+    if (!mongoose.Types.ObjectId.isValid(trimmedAuthorId)) {
       return new Response(JSON.stringify({ message: "Invalid author ID" }), {
         status: 400,
         headers,
@@ -112,8 +115,8 @@ export const PATCH: APIRoute = async ({ request }) => {
     await connect();
 
     const [user, post] = await Promise.all([
-      UserDetails.findById(authorId),
-      Post.findById(postId),
+      UserDetails.findById(trimmedAuthorId),
+      Post.findById(trimmedPostId),
     ]);
 
     if (!user) {
@@ -134,35 +137,45 @@ export const PATCH: APIRoute = async ({ request }) => {
       `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
       String(user.email).split("@")[0];
 
-    if (!Array.isArray(post.comments)) {
-      post.comments = [];
-    }
-
-    let newcomments = {
+    const newComment = {
+      id: new mongoose.Types.ObjectId().toString(),
       postId: String(post._id),
       author: {
-        authorid: String(user._id),
+        id: String(user._id),
         name: authorName,
         avatar: DEFAULT_POST_AVATAR,
       },
-      content: content,
-      
+      content: trimmedContent,
     };
-    post.comments.push(newcomments);
 
-    post.commentCount = post.comments.length;
-    post.commentPreview = content;
-    post.markModified("comments");
+    const updatedPost = await Post.findByIdAndUpdate(
+      trimmedPostId,
+      {
+        $push: { comments: newComment },
+        $set: { commentPreview: trimmedContent },
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
-    console.log("post ==> ", post);
+    if (!updatedPost) {
+      return new Response(JSON.stringify({ message: "Post not found" }), {
+        status: 404,
+        headers,
+      });
+    }
 
-    await post.save();
-    const updatedPost = await Post.findById(postId);
+    updatedPost.commentCount = Array.isArray(updatedPost.comments)
+      ? updatedPost.comments.length
+      : 0;
+    await updatedPost.save();
 
     return new Response(
       JSON.stringify({
         message: "Comment added successfully",
-        post: serializePost(updatedPost ?? post),
+        post: serializePost(updatedPost),
       }),
       {
         status: 200,

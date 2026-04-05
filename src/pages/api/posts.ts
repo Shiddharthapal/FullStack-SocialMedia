@@ -24,6 +24,29 @@ function createDataUrl(bytes: Buffer, mimeType: string) {
   return `data:${mimeType};base64,${bytes.toString("base64")}`;
 }
 
+function serializeComment(commentDocument: any) {
+  const comment = typeof commentDocument?.toJSON === "function"
+    ? commentDocument.toJSON()
+    : commentDocument;
+
+  return {
+    id: String(comment?.id ?? comment?._id ?? ""),
+    postId: String(comment?.postId ?? ""),
+    author: {
+      id: String(comment?.author?.id ?? comment?.author?.authorid ?? ""),
+      name: String(comment?.author?.name ?? ""),
+      avatar: String(comment?.author?.avatar ?? DEFAULT_POST_AVATAR),
+    },
+    content: String(comment?.content ?? ""),
+    createdAt: comment?.createdAt
+      ? new Date(comment.createdAt).toISOString()
+      : new Date().toISOString(),
+    updatedAt: comment?.updatedAt
+      ? new Date(comment.updatedAt).toISOString()
+      : undefined,
+  };
+}
+
 
 async function storePostImage(file: File) {
   const mimeType = file.type || "application/octet-stream";
@@ -52,7 +75,7 @@ function serializePost(postDocument: any) {
   return {
     id: String(post.id ?? post._id),
     author: {
-      id: String(post.author?.id ?? ""),
+      id: String(post.author?.id ?? post.author?.authorid ?? ""),
       name: String(post.author?.name ?? ""),
       avatar: String(post.author?.avatar ?? DEFAULT_POST_AVATAR),
     },
@@ -168,7 +191,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const post = await Post.create({
       author: {
-     authorid: String(user._id),
+        id: String(user._id),
         name: authorName,
         avatar: DEFAULT_POST_AVATAR,
       },
