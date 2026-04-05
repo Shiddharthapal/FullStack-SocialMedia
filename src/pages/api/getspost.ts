@@ -1,47 +1,12 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import { bunnyStorageService } from "@/lib/bunny-cdn";
 import Post from "@/model/post";
-import UserDetails from "@/model/User";
 
 const headers = {
   "Content-Type": "application/json",
 };
 
 const DEFAULT_POST_AVATAR = "/images/post_img.png";
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-const POST_VISIBILITY_VALUES = new Set(["Public", "Friends", "Only Me"]);
-const BUNNY_PUBLIC_BASE_URL = process.env.BUNNY_PUBLIC_BASE_URL?.replace(
-  /\/+$/,
-  "",
-);
-
-function sanitizeFileName(fileName: string) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase();
-}
-
-function createDataUrl(bytes: Buffer, mimeType: string) {
-  return `data:${mimeType};base64,${bytes.toString("base64")}`;
-}
-
-async function storePostImage(file: File) {
-  const mimeType = file.type || "application/octet-stream";
-  const bytes = Buffer.from(await file.arrayBuffer());
-
-  if (!BUNNY_PUBLIC_BASE_URL) {
-    return createDataUrl(bytes, mimeType);
-  }
-
-  const safeFileName = sanitizeFileName(file.name || "post-image");
-  const destinationPath = `posts/${Date.now()}-${safeFileName}`;
-
-  try {
-    await bunnyStorageService.uploadFile(destinationPath, bytes, mimeType);
-    return `${BUNNY_PUBLIC_BASE_URL}/${destinationPath}`;
-  } catch {
-    return createDataUrl(bytes, mimeType);
-  }
-}
 
 function serializePost(postDocument: any) {
   const post = typeof postDocument.toJSON === "function"
@@ -75,15 +40,31 @@ function serializePost(postDocument: any) {
   };
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   try {
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get("page") ?? "1"));
+    const limit = Math.min(
+      20,
+      Math.max(1, Number(url.searchParams.get("limit") ?? "5")),
+    );
+    const skip = (page - 1) * limit;
+
     await connect();
 
-    const posts = await Post.find().sort({ createdAt: -1 });
+    const [posts, totalPosts] = await Promise.all([
+      Post.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Post.countDocuments(),
+    ]);
+    const hasMore = skip + posts.length < totalPosts;
 
     return new Response(
       JSON.stringify({
         posts: posts.map(serializePost),
+        page,
+        limit,
+        hasMore,
+        totalPosts,
       }),
       {
         status: 200,

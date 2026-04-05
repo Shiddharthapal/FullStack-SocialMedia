@@ -130,6 +130,8 @@ const friends = [
   },
 ];
 
+const POSTS_PAGE_SIZE = 5;
+
 function preventDefault(event: FormEvent) {
   event.preventDefault();
 }
@@ -347,20 +349,42 @@ export default function Home() {
   const [composerText, setComposerText] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
   const [feedError, setFeedError] = useState("");
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
   const [composerError, setComposerError] = useState("");
   const [composerSuccess, setComposerSuccess] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
   const selectedUpload = useMemo(() => uploadedFiles[0] ?? null, [uploadedFiles]);
 
   useEffect(() => {
+    setPosts([]);
+    setCurrentPage(1);
+    setHasMorePosts(true);
+    setFeedError("");
+  }, [user?._id]);
+
+  useEffect(() => {
     let ignore = false;
+    const controller = new AbortController();
 
     const fetchPosts = async () => {
       try {
-        setFeedError("");
-        const response = await fetch("/api/getspost");
+        if (currentPage === 1) {
+          setIsLoadingPosts(true);
+        } else {
+          setIsLoadingMorePosts(true);
+        }
+
+        const response = await fetch(
+          `/api/getspost?page=${currentPage}&limit=${POSTS_PAGE_SIZE}`,
+          {
+            signal: controller.signal,
+          },
+        );
         const data = await response.json();
 
         if (!response.ok) {
@@ -368,9 +392,28 @@ export default function Home() {
         }
 
         if (!ignore) {
-          setPosts(Array.isArray(data.posts) ? data.posts : []);
+          const nextPosts = Array.isArray(data.posts) ? data.posts : [];
+
+          setPosts((currentPosts) =>
+            currentPage === 1
+              ? nextPosts
+              : [
+                  ...currentPosts,
+                  ...nextPosts.filter(
+                    (nextPost: Post) =>
+                      !currentPosts.some(
+                        (currentPost) => currentPost.id === nextPost.id,
+                      ),
+                  ),
+                ],
+          );
+          setHasMorePosts(Boolean(data.hasMore));
         }
       } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
         if (!ignore) {
           setFeedError(
             error instanceof Error
@@ -381,6 +424,7 @@ export default function Home() {
       } finally {
         if (!ignore) {
           setIsLoadingPosts(false);
+          setIsLoadingMorePosts(false);
         }
       }
     };
@@ -389,8 +433,9 @@ export default function Home() {
 
     return () => {
       ignore = true;
+      controller.abort();
     };
-  }, [user?._id]);
+  }, [currentPage, user?._id]);
 
   useEffect(() => {
     return () => {
@@ -401,6 +446,39 @@ export default function Home() {
       });
     };
   }, [uploadedFiles]);
+
+  useEffect(() => {
+    const trigger = loadMoreTriggerRef.current;
+
+    if (!trigger || !hasMorePosts) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+
+        if (
+          entry?.isIntersecting &&
+          !isLoadingPosts &&
+          !isLoadingMorePosts
+        ) {
+          setCurrentPage((page) => page + 1);
+        }
+      },
+      {
+        root: null,
+        rootMargin: "300px 0px",
+        threshold: 0.1,
+      },
+    );
+
+    observer.observe(trigger);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMorePosts, isLoadingPosts, isLoadingMorePosts]);
 
   const clearUploadedFiles = () => {
     uploadedFiles.forEach((file) => {
@@ -710,6 +788,8 @@ export default function Home() {
                 <img
                   src={post.image}
                   alt={post.title}
+                  loading="lazy"
+                  decoding="async"
                   className="_time_img"
                 />
               </div>
@@ -1659,6 +1739,16 @@ export default function Home() {
                     ) : null}
 
                     {postItems}
+
+                    {posts.length > 0 ? (
+                      <div
+                        ref={loadMoreTriggerRef}
+                        className="_mar_b16 text-center"
+                        aria-hidden="true"
+                      >
+                        {isLoadingMorePosts ? "Loading more posts..." : ""}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
