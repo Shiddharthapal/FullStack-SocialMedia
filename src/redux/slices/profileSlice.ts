@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import type { UserDetails } from "../../types/user"; // Import the correct UserDetails type
+import type { UserDetails } from "../../types/user";
 
 interface ProfileState {
   isEditing: boolean;
@@ -26,6 +26,8 @@ const initialState: ProfileState = {
   successMessage: null,
 };
 
+// The profile slice tracks editing/saving state only. The actual profile fields
+// live elsewhere, so this slice behaves like UI workflow state for profile screens.
 export const profileSlice = createSlice({
   name: "profile",
   initialState,
@@ -50,7 +52,6 @@ export const profileSlice = createSlice({
       state.error = null;
       state.lastUpdated = new Date().toISOString();
 
-      // Update profile status
       if (isNewProfile) {
         state.profileCreated = true;
         state.hasProfile = true;
@@ -59,7 +60,7 @@ export const profileSlice = createSlice({
         state.successMessage = "Profile updated successfully!";
       }
 
-      // Exit edit mode after successful save
+      // A successful save exits edit mode so the UI returns to read state.
       state.isEditing = false;
     },
 

@@ -1,6 +1,37 @@
-import { useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import type { Post, PostVisibility } from "@/types/post";
+import { useAppSelector } from "@/redux/hooks";
 import { Link } from "react-router-dom";
 
+// Home is the main authenticated feed route. It owns post creation, feed
+// fetching, infinite scrolling, comments, and reaction toggling in one place.
+interface FileUpload {
+  _id?: string;
+  file: File;
+  filename: string;
+  name: string;
+  documentName: string;
+  originalName: string;
+  fileType: string;
+  fileSize: number;
+  path: string;
+  url: string;
+  checksum?: string;
+  uploadedAt?: Date;
+  deletedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// These arrays are static demo/sidebar content. Real feed data is fetched from
+// the backend API routes later in this component.
 const notifications = [
   {
     id: 1,
@@ -79,33 +110,6 @@ const people = [
   },
 ];
 
-const posts = [
-  {
-    id: 1,
-    author: "Karim Saif",
-    avatar: "/images/post_img.png",
-    image: "/images/timeline_img.png",
-    title: "Healthy Tracking App",
-    time: "5 minutes ago",
-    comments: 12,
-    shares: 122,
-    preview:
-      "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.",
-  },
-  {
-    id: 2,
-    author: "Radovan SkillArena",
-    avatar: "/images/post_img.png",
-    image: "/images/timeline_img.png",
-    title: "Product sprint dashboard",
-    time: "12 minutes ago",
-    comments: 8,
-    shares: 64,
-    preview:
-      "The updated workflow is clearer now and the whole team can follow sprint health at a glance.",
-  },
-];
-
 const friends = [
   {
     id: 1,
@@ -130,8 +134,49 @@ const friends = [
   },
 ];
 
+const POSTS_PAGE_SIZE = 5;
+
 function preventDefault(event: FormEvent) {
   event.preventDefault();
+}
+
+// Feed items store ISO timestamps, so the UI turns them into a readable relative
+// label here instead of pushing presentation logic into the API.
+function formatRelativeTime(dateValue: string) {
+  const targetDate = new Date(dateValue);
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return dateValue;
+  }
+
+  const diffInSeconds = Math.max(
+    1,
+    Math.floor((Date.now() - targetDate.getTime()) / 1000),
+  );
+
+  if (diffInSeconds < 60) {
+    return "Just now";
+  }
+
+  const minutes = Math.floor(diffInSeconds / 60);
+
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+
+  if (days < 7) {
+    return `${days} day${days === 1 ? "" : "s"} ago`;
+  }
+
+  return targetDate.toLocaleDateString();
 }
 
 function HomeNavIcon() {
@@ -301,11 +346,1051 @@ function PenComposerIcon() {
   );
 }
 
+function PublicVisibilityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+      <path
+        d="M2.5 12h19"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+      <path
+        d="M12 2c2.6 2.7 4 6.2 4 10s-1.4 7.3-4 10c-2.6-2.7-4-6.2-4-10S9.4 4.7 12 2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function OnlyMeVisibilityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M7 10V7a5 5 0 0 1 10 0v3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <rect
+        x="5"
+        y="10"
+        width="14"
+        height="10"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function normalizeVisibility(visibility: PostVisibility | string) {
+  return visibility === "Public" ? "Public" : "Only Me";
+}
+
+function VisibilityBadge({ visibility }: { visibility: PostVisibility | string }) {
+  const normalizedVisibility = normalizeVisibility(visibility);
+
+  return (
+    <span className="d-inline-flex align-items-center gap-1">
+      {normalizedVisibility === "Public" ? (
+        <PublicVisibilityIcon />
+      ) : (
+        <OnlyMeVisibilityIcon />
+      )}
+      <span>{normalizedVisibility}</span>
+    </span>
+  );
+}
+
 export default function Home() {
+  const { user } = useAppSelector((state) => state.auth);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [openPostMenuId, setOpenPostMenuId] = useState<number | null>(null);
+  const [isVisibilityMenuOpen, setIsVisibilityMenuOpen] = useState(false);
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [composerText, setComposerText] = useState("");
+  const [postVisibility, setPostVisibility] = useState<PostVisibility>("Public");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [feedError, setFeedError] = useState("");
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+  const [composerError, setComposerError] = useState("");
+  const [composerSuccess, setComposerSuccess] = useState("");
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
+  const [submittingCommentPostId, setSubmittingCommentPostId] = useState<
+    string | null
+  >(null);
+  const [reactingPostId, setReactingPostId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
+  // The composer currently shows one selected image at a time even though the
+  // upload state is kept in an array for compatibility with the existing shape.
+  const selectedUpload = useMemo(() => uploadedFiles[0] ?? null, [uploadedFiles]);
+  // Private posts stay visible only to their author at the UI layer as an extra
+  // guard on top of the API-side filtering.
+  const visiblePosts = useMemo(
+    () =>
+      posts.filter(
+        (post) =>
+          normalizeVisibility(post.visibility) === "Public" ||
+          post.author.id === user?._id,
+      ),
+    [posts, user?._id],
+  );
+
+  useEffect(() => {
+    // Rebuild the feed from page 1 when the authenticated user changes.
+    setPosts([]);
+    setCurrentPage(1);
+    setHasMorePosts(true);
+    setFeedError("");
+  }, [user?._id]);
+
+  useEffect(() => {
+    let ignore = false;
+    const controller = new AbortController();
+
+    const fetchPosts = async () => {
+      try {
+        // The first page uses the main loading state; later pages use the
+        // smaller "load more" indicator for smoother scrolling.
+        if (currentPage === 1) {
+          setIsLoadingPosts(true);
+        } else {
+          setIsLoadingMorePosts(true);
+        }
+
+        const searchParams = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(POSTS_PAGE_SIZE),
+        });
+
+        if (user?._id) {
+          searchParams.set("userId", user._id);
+        }
+
+        const response = await fetch(
+          `/api/getspost?${searchParams.toString()}`,
+          {
+            signal: controller.signal,
+          },
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch posts");
+        }
+
+        if (!ignore) {
+          const nextPosts = Array.isArray(data.posts) ? data.posts : [];
+
+          setPosts((currentPosts) =>
+            currentPage === 1
+              ? nextPosts
+              : [
+                  ...currentPosts,
+                  ...nextPosts.filter(
+                    (nextPost: Post) =>
+                      !currentPosts.some(
+                        (currentPost) => currentPost.id === nextPost.id,
+                      ),
+                  ),
+                ],
+          );
+          setHasMorePosts(Boolean(data.hasMore));
+        }
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (!ignore) {
+          setFeedError(
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch posts",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingPosts(false);
+          setIsLoadingMorePosts(false);
+        }
+      }
+    };
+
+    fetchPosts();
+
+    return () => {
+      ignore = true;
+      controller.abort();
+    };
+  }, [currentPage, user?._id]);
+
+  useEffect(() => {
+    // Revoke object URLs when the selected image changes or the component
+    // unmounts so browser memory is not leaked by blob previews.
+    return () => {
+      uploadedFiles.forEach((file) => {
+        if (file.url.startsWith("blob:")) {
+          URL.revokeObjectURL(file.url);
+        }
+      });
+    };
+  }, [uploadedFiles]);
+
+  useEffect(() => {
+    const trigger = loadMoreTriggerRef.current;
+
+    if (!trigger || !hasMorePosts) {
+      return;
+    }
+
+    // The sentinel element at the end of the feed automatically loads the next
+    // page once it becomes visible.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+
+        if (
+          entry?.isIntersecting &&
+          !isLoadingPosts &&
+          !isLoadingMorePosts
+        ) {
+          setCurrentPage((page) => page + 1);
+        }
+      },
+      {
+        root: null,
+        rootMargin: "300px 0px",
+        threshold: 0.1,
+      },
+    );
+
+    observer.observe(trigger);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMorePosts, isLoadingPosts, isLoadingMorePosts]);
+
+  const clearUploadedFiles = () => {
+    uploadedFiles.forEach((file) => {
+      if (file.url.startsWith("blob:")) {
+        URL.revokeObjectURL(file.url);
+      }
+    });
+
+    setUploadedFiles([]);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setComposerError("Please choose a valid image file.");
+      event.target.value = "";
+      return;
+    }
+
+    setComposerError("");
+    clearUploadedFiles();
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setUploadedFiles([
+      {
+        file,
+        filename: file.name,
+        name: file.name,
+        documentName: file.name.replace(/\.[^/.]+$/, ""),
+        originalName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        path: "",
+        url: previewUrl,
+      },
+    ]);
+  };
+
+  const handleCreatePost = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!user?._id) {
+      setComposerError("You must be logged in to create a post.");
+      return;
+    }
+
+    // One composer supports both text-only posts and posts with an uploaded image.
+    const trimmedText = composerText.trim();
+
+    if (!trimmedText) {
+      setComposerError("Write something before posting.");
+      return;
+    }
+
+    try {
+      setIsSubmittingPost(true);
+      setComposerError("");
+      setComposerSuccess("");
+
+      const formData = new FormData();
+      formData.append("authorId", user._id);
+      formData.append("title", trimmedText);
+      formData.append("visibility", postVisibility);
+      uploadedFiles.forEach((fileData) => {
+        formData.append(`files`, fileData.file);
+        formData.append(`documentNames`, fileData.documentName);
+        formData.append(`originalNames`, fileData.originalName);
+      });
+
+      if (selectedUpload?.file) {
+        formData.append("image", selectedUpload.file);
+      }
+
+      const response = await fetch("/api/posts", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to create post");
+      }
+
+      setPosts((currentPosts) => [data.post as Post, ...currentPosts]);
+      setComposerText("");
+      setPostVisibility("Public");
+      setIsVisibilityMenuOpen(false);
+      clearUploadedFiles();
+      setComposerSuccess("Post created successfully.");
+    } catch (error) {
+      setComposerError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create post",
+      );
+    } finally {
+      setIsSubmittingPost(false);
+    }
+  };
+
+  const clearCommentError = (postId: string) => {
+    setCommentErrors((currentErrors) => {
+      if (!currentErrors[postId]) {
+        return currentErrors;
+      }
+
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[postId];
+      return nextErrors;
+    });
+  };
+
+  const handleCommentDraftChange = (postId: string, value: string) => {
+    setCommentDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [postId]: value,
+    }));
+    clearCommentError(postId);
+  };
+
+  const handleCreateComment = async (
+    event: FormEvent<HTMLFormElement>,
+    postId: string,
+  ) => {
+    event.preventDefault();
+
+    if (!user?._id) {
+      setCommentErrors((currentErrors) => ({
+        ...currentErrors,
+        [postId]: "You must be logged in to comment.",
+      }));
+      return;
+    }
+
+    // Each post keeps its own draft and submit state so comment boxes do not
+    // overwrite one another while multiple cards are visible.
+    const trimmedContent = (commentDrafts[postId] ?? "").trim();
+
+    if (!trimmedContent) {
+      setCommentErrors((currentErrors) => ({
+        ...currentErrors,
+        [postId]: "Write a comment before sending it.",
+      }));
+      return;
+    }
+
+    try {
+      setSubmittingCommentPostId(postId);
+      clearCommentError(postId);
+
+      const response = await fetch("/api/comments", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId,
+          authorId: user._id,
+          content: trimmedContent,
+        }),
+      });
+      const data = await response.json();
+      console.log("data ==> ", data);
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to add comment");
+      }
+
+        const nextLikedState = data.action === "liked";
+
+        setPosts((currentPosts) =>
+          currentPosts.map((post) => {
+            if ((post.id ?? post._id) !== postId) {
+              return post;
+            }
+
+            const updatedPost = (data.post as Post) ?? post;
+
+            return {
+              ...post,
+              ...updatedPost,
+              viewerHasLiked: nextLikedState,
+              reactionCount: Number(
+                updatedPost.reactionCount ?? post.reactionCount ?? 0,
+              ),
+            };
+          }),
+        );
+      setCommentDrafts((currentDrafts) => ({
+        ...currentDrafts,
+        [postId]: "",
+      }));
+    } catch (error) {
+      setCommentErrors((currentErrors) => ({
+        ...currentErrors,
+        [postId]: error instanceof Error
+          ? error.message
+          : "Failed to add comment",
+      }));
+    } finally {
+      setSubmittingCommentPostId(null);
+    }
+  };
+
+  const handleToggleLike = async (postId: string) => {
+    if (!user?._id) {
+      setFeedError("You must be logged in to react to a post.");
+      return;
+    }
+
+    try {
+      setReactingPostId(postId);
+      setFeedError("");
+
+      const response = await fetch("/api/reaction", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId,
+          userId: user._id,
+        }),
+      });
+      const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to update reaction");
+        }
+
+        // Replace only the touched post so the rest of the feed keeps its local state.
+        setPosts((currentPosts) =>
+          currentPosts.map((post) =>
+            (post.id ?? post._id) === postId ? data.post as Post : post,
+        ),
+      );
+    } catch (error) {
+      setFeedError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update reaction",
+      );
+    } finally {
+      setReactingPostId(null);
+    }
+  };
+
+  const notificationItems = useMemo(
+    () =>
+      notifications.map((item) => (
+        <div key={item.id} className="_notification_box">
+          <div className="_notification_image">
+            <img
+              src={item.image}
+              alt={item.title}
+              className="_notify_img"
+            />
+          </div>
+          <div className="flex flex-col items-start">
+            <p className="_notification_para">
+              <span className="_notify_txt_link">{item.title}</span>{" "}
+              {item.text}
+            </p>
+            <div className="_nitification_time">
+              <span>{item.time}</span>
+            </div>
+          </div>
+        </div>
+      )),
+    [],
+  );
+
+  const suggestedPeopleItems = useMemo(
+    () =>
+      people.map((person) => (
+        <div key={person.id} className="_left_inner_area_suggest_info">
+          <div className="_left_inner_area_suggest_info_box">
+            <div className="_left_inner_area_suggest_info_image">
+              <a href="#0">
+                <img
+                  src={person.image}
+                  alt={person.name}
+                  className="_info_img1"
+                />
+              </a>
+            </div>
+            <div className="_left_inner_area_suggest_info_txt">
+              <a href="#0">
+                <h4 className="_left_inner_area_suggest_info_title">
+                  {person.name}
+                </h4>
+              </a>
+              <p className="_left_inner_area_suggest_info_para">
+                {person.title}
+              </p>
+            </div>
+          </div>
+          <div className="_left_inner_area_suggest_info_link">
+            <a href="#0" className="_info_link">
+              Connect
+            </a>
+          </div>
+        </div>
+      )),
+    [],
+  );
+
+  const storyItems = useMemo(
+    () =>
+      stories.map((story) => (
+        <div
+          key={story.id}
+          className="col-xl-3 col-lg-3 col-md-4 col-sm-4 col"
+        >
+          <div
+            className={`${story.isOwnStory ? "_feed_inner_profile_story" : "_feed_inner_public_story"} _b_radious6`}
+          >
+            <div
+              className={
+                story.isOwnStory
+                  ? "_feed_inner_profile_story_image"
+                  : "_feed_inner_public_story_image"
+              }
+            >
+              <img
+                src={story.image}
+                alt={story.name}
+                className={
+                  story.isOwnStory ? "_profile_story_img" : "_public_story_img"
+                }
+              />
+              {!story.isOwnStory ? (
+                <div className="_feed_inner_story_avatar">
+                  <img
+                    src={story.avatar}
+                    alt={`${story.name} avatar`}
+                    className="_feed_inner_story_avatar_img"
+                  />
+                </div>
+              ) : null}
+              {story.isOwnStory ? (
+                <div className="_feed_inner_story_btn">
+                  <button
+                    type="button"
+                    className="_feed_inner_story_btn_link"
+                    aria-label="Add story"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : null}
+              <div
+                className={
+                  story.isOwnStory
+                    ? "_feed_inner_story_txt"
+                    : "_feed_inner_pulic_story_txt"
+                }
+              >
+                <p
+                  className={
+                    story.isOwnStory
+                      ? "_feed_inner_story_para"
+                      : "_feed_inner_pulic_story_para"
+                  }
+                >
+                  {story.name}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )),
+    [],
+  );
+
+  const postItems = useMemo(
+    () =>
+      visiblePosts.map((post) => {
+        const postId = post.id ?? post._id ?? "";
+        const postComments = Array.isArray(post.comments) ? post.comments : [];
+        const isLiked =
+          typeof post.viewerHasLiked === "boolean"
+            ? post.viewerHasLiked
+            : Boolean(
+                user?._id &&
+                  Array.isArray(post.reactions) &&
+                  post.reactions.some(
+                    (reaction) =>
+                      String(reaction?.userId ?? "") === String(user._id),
+                  ),
+              );
+        const isUpdatingReaction = reactingPostId === postId;
+        const reactionColor = isLiked ? "#0d6efd" : "#666";
+
+        return (
+        <div
+          key={postId}
+          className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16"
+        >
+          <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
+            <div className="_feed_inner_timeline_post_top">
+              <div className="_feed_inner_timeline_post_box">
+                <div className="_feed_inner_timeline_post_box_image">
+                  <img
+                    src={post.author.avatar}
+                    alt={post.author.name}
+                    className="_post_img"
+                  />
+                </div>
+                <div className="_feed_inner_timeline_post_box_txt">
+                  <h4 className="_feed_inner_timeline_post_box_title">
+                    {post.author.name}
+                  </h4>
+                  <p className="_feed_inner_timeline_post_box_para">
+                    {formatRelativeTime(post.createdAt)} .{" "}
+                    <span className="d-inline-flex align-items-center">
+                      <VisibilityBadge visibility={post.visibility} />
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="_feed_inner_timeline_post_box_dropdown">
+                <div className="_feed_timeline_post_dropdown">
+                  <button
+                    type="button"
+                    className="_feed_timeline_post_dropdown_link"
+                    onClick={() =>
+                      setOpenPostMenuId((value) =>
+                        value === postId ? null : postId,
+                      )
+                    }
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="4" height="17" fill="none" viewBox="0 0 4 17">
+                      <circle cx="2" cy="2" r="2" fill="#C4C4C4" />
+                      <circle cx="2" cy="8" r="2" fill="#C4C4C4" />
+                      <circle cx="2" cy="15" r="2" fill="#C4C4C4" />
+                    </svg>
+                  </button>
+                </div>
+                <div
+                  className={`_feed_timeline_dropdown _timeline_dropdown${openPostMenuId === postId ? " show" : ""}`}
+                >
+                  <ul className="_feed_timeline_dropdown_list">
+                    <li className="_feed_timeline_dropdown_item">
+                      <a href="#0" className="_feed_timeline_dropdown_link">
+                        Save Post
+                      </a>
+                    </li>
+                    <li className="_feed_timeline_dropdown_item">
+                      <a href="#0" className="_feed_timeline_dropdown_link">
+                        Turn On Notification
+                      </a>
+                    </li>
+                    <li className="_feed_timeline_dropdown_item">
+                      <a href="#0" className="_feed_timeline_dropdown_link">
+                        Hide
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <h4 className="_feed_inner_timeline_post_title">{post.title}</h4>
+            {post.image ? (
+              <div className="_feed_inner_timeline_image">
+                <img
+                  src={post.image}
+                  alt={post.title}
+                  loading="lazy"
+                  decoding="async"
+                  className="_time_img"
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
+            <div className="_feed_inner_timeline_total_reacts_txt">
+              <p className="_feed_inner_timeline_total_reacts_para1">
+                <span>{post.reactionCount}</span> Likes
+              </p>
+              
+            </div>
+            <div className="_feed_inner_timeline_total_reacts_txt">
+              <p className="_feed_inner_timeline_total_reacts_para1">
+                <a href="#0">
+                  <span>{post.comments.length}</span> Comments
+                </a>
+              </p>
+              <p className="_feed_inner_timeline_total_reacts_para2">
+                <span>{post.shareCount}</span> Share
+              </p>
+            </div>
+          </div>
+            <div className="_feed_inner_timeline_reaction">
+              <button
+                type="button"
+                className={`_feed_inner_timeline_reaction_emoji _feed_reaction${isLiked ? " _feed_reaction_active" : ""}`}
+                onClick={() => handleToggleLike(postId)}
+                disabled={isUpdatingReaction}
+                aria-pressed={isLiked}
+                style={{
+                  color: reactionColor,
+                  fontWeight: isLiked ? 600 : 500,
+                }}
+              >
+                <span className="_feed_inner_timeline_reaction_link">
+                  {" "}
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      color: reactionColor,
+                    }}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M14 9V5.5A2.5 2.5 0 0 0 11.5 3L8 10v11h9.24a2 2 0 0 0 1.97-1.64l1.38-7A2 2 0 0 0 18.63 10H14Z"
+                        fill={isLiked ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M8 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    {isUpdatingReaction
+                      ? "Updating..."
+                      : isLiked
+                      ? "Unlike"
+                      : "Like"}
+                </span>
+              </span>
+            </button>
+            <button className="_feed_inner_timeline_reaction_comment _feed_reaction">
+              <span className="_feed_inner_timeline_reaction_link">
+                {" "}
+                <span>
+                  <svg
+                    className="_reaction_svg"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="21"
+                    height="21"
+                    fill="none"
+                    viewBox="0 0 21 21"
+                  >
+                    <path
+                      stroke="#000"
+                      d="M1 10.5c0-.464 0-.696.009-.893A9 9 0 019.607 1.01C9.804 1 10.036 1 10.5 1v0c.464 0 .696 0 .893.009a9 9 0 018.598 8.598c.009.197.009.429.009.893v6.046c0 1.36 0 2.041-.317 2.535a2 2 0 01-.602.602c-.494.317-1.174.317-2.535.317H10.5c-.464 0-.696 0-.893-.009a9 9 0 01-8.598-8.598C1 11.196 1 10.964 1 10.5v0z"
+                    />
+                    <path
+                      stroke="#000"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6.938 9.313h7.125M10.5 14.063h3.563"
+                    />
+                  </svg>
+                  Comment
+                </span>
+              </span>
+            </button>
+            <button className="_feed_inner_timeline_reaction_share _feed_reaction">
+              <span className="_feed_inner_timeline_reaction_link">
+                {" "}
+                <span>
+                  <svg
+                    className="_reaction_svg"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="21"
+                    fill="none"
+                    viewBox="0 0 24 21"
+                  >
+                    <path
+                      stroke="#000"
+                      stroke-linejoin="round"
+                      d="M23 10.5L12.917 1v5.429C3.267 6.429 1 13.258 1 20c2.785-3.52 5.248-5.429 11.917-5.429V20L23 10.5z"
+                    />
+                  </svg>
+                  Share
+                </span>
+              </span>
+            </button>
+          </div>
+          <div className="_feed_inner_timeline_cooment_area">
+            <div className="_feed_inner_comment_box">
+              <form
+                className="_feed_inner_comment_box_form"
+                onSubmit={(event) => handleCreateComment(event, postId)}
+              >
+                <div className="_feed_inner_comment_box_content">
+                  <div className="_feed_inner_comment_box_content_image">
+                    <img
+                      src="/images/comment_img.png"
+                      alt="Comment"
+                      className="_comment_img"
+                    />
+                  </div>
+                  <div className="_feed_inner_comment_box_content_txt">
+                    <textarea
+                      className="form-control _comment_textarea"
+                      placeholder="Write a comment"
+                      value={commentDrafts[postId] ?? ""}
+                      onChange={(event) =>
+                        handleCommentDraftChange(postId, event.target.value)
+                      }
+                      disabled={submittingCommentPostId === postId}
+                    />
+                  </div>
+                </div>
+                <div className="_feed_inner_comment_box_icon d-flex align-items-center">
+                  <button
+                    type="submit"
+                    className="_feed_inner_comment_box_icon_btn"
+                    disabled={
+                      submittingCommentPostId === postId ||
+                      !(commentDrafts[postId] ?? "").trim()
+                    }
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+                      <path fill="#000" fill-opacity=".46" fill-rule="evenodd" d="M13.167 6.534a.5.5 0 01.5.5c0 3.061-2.35 5.582-5.333 5.837V14.5a.5.5 0 01-1 0v-1.629C4.35 12.616 2 10.096 2 7.034a.5.5 0 011 0c0 2.679 2.168 4.859 4.833 4.859 2.666 0 4.834-2.18 4.834-4.86a.5.5 0 01.5-.5zM7.833.667a3.218 3.218 0 013.208 3.22v3.126c0 1.775-1.439 3.22-3.208 3.22a3.218 3.218 0 01-3.208-3.22V3.887c0-1.776 1.44-3.22 3.208-3.22zm0 1a2.217 2.217 0 00-2.208 2.22v3.126c0 1.223.991 2.22 2.208 2.22a2.217 2.217 0 002.208-2.22V3.887c0-1.224-.99-2.22-2.208-2.22z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm ms-2"
+                    disabled={
+                      submittingCommentPostId === postId ||
+                      !(commentDrafts[postId] ?? "").trim()
+                    }
+                  >
+                    {submittingCommentPostId === postId ? "Sending..." : "Send"}
+                  </button>
+                </div>
+              </form>
+              {commentErrors[postId] ? (
+                <p className="text-danger small mt-2 mb-0">
+                  {commentErrors[postId]}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="_timline_comment_main">
+            {postComments.length > 3 ? (
+              <div className="_previous_comment">
+                <button
+                  type="button"
+                  className="_previous_comment_txt"
+                >
+                  View {postComments.length - 3} previous comments
+                </button>
+              </div>
+            ) : null}
+            {postComments.length > 0 ? (
+              postComments
+                .slice(-3)
+                .reverse()
+                .map((comment) => (
+                  <div className="_comment_main" key={comment.id ?? comment._id}>
+                    <div className="_comment_image">
+                      <a href="#0" className="_comment_image_link">
+                        <img
+                          src={comment.author.avatar}
+                          alt={comment.author.name}
+                          className="_comment_img1"
+                        />
+                      </a>
+                    </div>
+                    <div className="_comment_area">
+                      <div className="_comment_details">
+                        <div className="_comment_details_top">
+                          <div className="_comment_name">
+                            <a href="#0">
+                              <h4 className="_comment_name_title">
+                                {comment.author.name}
+                              </h4>
+                            </a>
+                          </div>
+                        </div>
+                        <div className="_comment_status">
+                          <p className="_comment_status_text">
+                            <span>{comment.content}</span>
+                          </p>
+                          <p
+                            className="text-muted mb-0 mt-1"
+                            style={{ fontSize: "11px", lineHeight: 1.2 }}
+                          >
+                            {formatRelativeTime(comment.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+            ) : (
+              <div className="_comment_main">
+                <div className="_comment_area w-100">
+                  <div className="_comment_details">
+                    <div className="_comment_status">
+                      <p className="_comment_status_text">
+                        <span>No comments yet on this post.</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}),
+    [
+      commentDrafts,
+      commentErrors,
+      handleCreateComment,
+      openPostMenuId,
+      reactingPostId,
+      submittingCommentPostId,
+      visiblePosts,
+    ],
+  );
+
+  const friendItems = useMemo(
+    () =>
+      friends.map((friend) => (
+        <div
+          key={friend.id}
+          className={`_feed_right_inner_area_card_ppl${friend.status === "away" ? " _feed_right_inner_area_card_ppl_inactive" : ""}`}
+        >
+          <div className="_feed_right_inner_area_card_ppl_box">
+            <div className="_feed_right_inner_area_card_ppl_image">
+              <a href="#0">
+                <img
+                  src={friend.image}
+                  alt={friend.name}
+                  className="_box_ppl_img"
+                />
+              </a>
+            </div>
+            <div className="_feed_right_inner_area_card_ppl_txt">
+              <a href="#0">
+                <h4 className="_feed_right_inner_area_card_ppl_title">
+                  {friend.name}
+                </h4>
+              </a>
+              <p className="_feed_right_inner_area_card_ppl_para">
+                {friend.title}
+              </p>
+            </div>
+          </div>
+          <div className="_feed_right_inner_area_card_ppl_side">
+            {friend.status === "online" ? (
+              <div className="_feed_right_inner_area_card_ppl_side">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 14 14"
+                >
+                  <rect
+                    width="12"
+                    height="12"
+                    x="1"
+                    y="1"
+                    fill="#0ACF83"
+                    stroke="#fff"
+                    stroke-width="2"
+                    rx="6"
+                  />
+                </svg>
+              </div>
+            ) : (
+              <div className="_feed_right_inner_area_card_ppl_side">
+                {" "}
+                <span>5 minute ago</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )),
+    [],
+  );
 
   return (
     <div className="_layout _layout_main_wrapper">
@@ -313,7 +1398,7 @@ export default function Home() {
         <nav className="navbar navbar-expand-lg navbar-light _header_nav _padd_t10">
           <div className="container _custom_container">
             <div className="_logo_wrap">
-              <Link className="navbar-brand" to="/home">
+              <Link className="navbar-brand" to="/">
                 <img
                   src="/images/logo.svg"
                   alt="Buddy Script"
@@ -336,7 +1421,7 @@ export default function Home() {
                 <li className="nav-item _header_nav_item">
                   <Link
                     className="nav-link _header_nav_link _header_nav_link_active"
-                    to="/home"
+                    to="/"
                     aria-label="Home"
                     title="Home"
                   >
@@ -438,30 +1523,7 @@ export default function Home() {
                             Unread
                           </button>
                         </div>
-                        <div className="_notifications_all">
-                          {notifications.map((item) => (
-                            <div key={item.id} className="_notification_box">
-                              <div className="_notification_image">
-                                <img
-                                  src={item.image}
-                                  alt={item.title}
-                                  className="_notify_img"
-                                />
-                              </div>
-                              <div className="flex flex-col items-start">
-                                <p className="_notification_para">
-                                  <span className="_notify_txt_link">
-                                    {item.title}
-                                  </span>{" "}
-                                  {item.text}
-                                </p>
-                                <div className="_nitification_time">
-                                  <span>{item.time}</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        <div className="_notifications_all">{notificationItems}</div>
                       </div>
                     </div>
                   </button>
@@ -488,7 +1550,7 @@ export default function Home() {
                   />
                 </div>
                 <div className="_header_nav_dropdown">
-                  <p className="_header_nav_para">Dylan Field</p>
+                  <p className="_header_nav_para">{user?.firstName} {user?.lastName}</p>
                   <button
                     className={`_header_nav_dropdown_btn _dropdown_toggle${isProfileOpen ? " _header_nav_dropdown_btn_active" : ""}`}
                     type="button"
@@ -550,7 +1612,7 @@ export default function Home() {
             <div className="container">
               <div className="_header_mobile_menu_top_inner">
                 <div className="_header_mobile_menu_logo">
-                  <Link to="/home">
+                  <Link to="/">
                     <img
                       src="/images/logo.svg"
                       alt="Buddy Script"
@@ -573,7 +1635,7 @@ export default function Home() {
             <ul className="_mobile_navigation_bottom_list">
               <li className="_mobile_navigation_bottom_item">
                 <Link
-                  to="/home"
+                  to="/"
                   className="_mobile_navigation_bottom_link _mobile_navigation_bottom_link_active"
                   aria-label="Home"
                   title="Home"
@@ -820,39 +1882,7 @@ export default function Home() {
                           </a>
                         </span>
                       </div>
-                      {people.map((person) => (
-                        <div
-                          key={person.id}
-                          className="_left_inner_area_suggest_info"
-                        >
-                          <div className="_left_inner_area_suggest_info_box">
-                            <div className="_left_inner_area_suggest_info_image">
-                              <a href="#0">
-                                <img
-                                  src={person.image}
-                                  alt={person.name}
-                                  className="_info_img1"
-                                />
-                              </a>
-                            </div>
-                            <div className="_left_inner_area_suggest_info_txt">
-                              <a href="#0">
-                                <h4 className="_left_inner_area_suggest_info_title">
-                                  {person.name}
-                                </h4>
-                              </a>
-                              <p className="_left_inner_area_suggest_info_para">
-                                {person.title}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="_left_inner_area_suggest_info_link">
-                            <a href="#0" className="_info_link">
-                              Connect
-                            </a>
-                          </div>
-                        </div>
-                      ))}
+                      {suggestedPeopleItems}
                     </div>
                   </div>
                 </div>
@@ -863,71 +1893,7 @@ export default function Home() {
                   <div className="_layout_middle_inner">
                     <div className="_feed_inner_ppl_card _mar_b16">
                       <div className="row">
-                        {stories.map((story) => (
-                          <div
-                            key={story.id}
-                            className="col-xl-3 col-lg-3 col-md-4 col-sm-4 col"
-                          >
-                            <div
-                              className={`${story.isOwnStory ? "_feed_inner_profile_story" : "_feed_inner_public_story"} _b_radious6`}
-                            >
-                              <div
-                                className={
-                                  story.isOwnStory
-                                    ? "_feed_inner_profile_story_image"
-                                    : "_feed_inner_public_story_image"
-                                }
-                              >
-                                <img
-                                  src={story.image}
-                                  alt={story.name}
-                                  className={
-                                    story.isOwnStory
-                                      ? "_profile_story_img"
-                                      : "_public_story_img"
-                                  }
-                                />
-                                {!story.isOwnStory ? (
-                                  <div className="_feed_inner_story_avatar">
-                                    <img
-                                      src={story.avatar}
-                                      alt={`${story.name} avatar`}
-                                      className="_feed_inner_story_avatar_img"
-                                    />
-                                  </div>
-                                ) : null}
-                                {story.isOwnStory ? (
-                                  <div className="_feed_inner_story_btn">
-                                    <button
-                                      type="button"
-                                      className="_feed_inner_story_btn_link"
-                                      aria-label="Add story"
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                ) : null}
-                                <div
-                                  className={
-                                    story.isOwnStory
-                                      ? "_feed_inner_story_txt"
-                                      : "_feed_inner_pulic_story_txt"
-                                  }
-                                >
-                                  <p
-                                    className={
-                                      story.isOwnStory
-                                        ? "_feed_inner_story_para"
-                                        : "_feed_inner_pulic_story_para"
-                                    }
-                                  >
-                                    {story.name}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                        {storyItems}
                       </div>
                       {moreStories.length > 0 ? (
                         <div className="_feed_inner_story_arrow">
@@ -957,7 +1923,17 @@ export default function Home() {
                       ) : null}
                     </div>
 
-                    <div className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16">
+                    <form
+                      className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16"
+                      onSubmit={handleCreatePost}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={handlePhotoSelect}
+                      />
                       <div className="_feed_inner_text_area_box">
                         <div className="_feed_inner_text_area_box_image">
                           <img
@@ -975,6 +1951,7 @@ export default function Home() {
                             onChange={(event) =>
                               setComposerText(event.target.value)
                             }
+                            disabled={isSubmittingPost}
                           />
                           <label
                             className="_feed_textarea_label"
@@ -985,21 +1962,118 @@ export default function Home() {
                           </label>
                         </div>
                       </div>
-                      <div className="_feed_inner_text_area_bottom">
-                        <div className="_feed_inner_text_area_item">
+
+                      {composerError ? (
+                        <div className="alert alert-danger mt-3 mb-0" role="alert">
+                          {composerError}
+                        </div>
+                      ) : null}
+
+                      {composerSuccess ? (
+                        <div className="alert alert-success mt-3 mb-0" role="alert">
+                          {composerSuccess}
+                        </div>
+                      ) : null}
+
+                      {selectedUpload ? (
+                        <div className="mt-3 rounded overflow-hidden border">
+                          <img
+                            src={selectedUpload.url}
+                            alt={selectedUpload.name || "Selected post image"}
+                            className="_time_img"
+                          />
+                          <div className="d-flex align-items-center justify-content-between p-3">
+                            <span className="small text-break">
+                              {selectedUpload.name}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={clearUploadedFiles}
+                              disabled={isSubmittingPost}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="_feed_inner_text_area_bottom d-flex flex-column align-items-stretch gap-3 h-auto py-3">
+                        <div
+                          className="_feed_inner_text_area_item d-flex flex-wrap align-items-center w-100"
+                          style={{ rowGap: "10px" }}
+                        >
+                          <div className="_feed_common">
+                            <div className="position-relative">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
+                                onClick={() =>
+                                  setIsVisibilityMenuOpen((value) => !value)
+                                }
+                                disabled={isSubmittingPost}
+                                aria-haspopup="menu"
+                                aria-expanded={isVisibilityMenuOpen}
+                              >
+                                <span className="d-inline-flex align-items-center gap-1">
+                                  {postVisibility === "Public" ? (
+                                    <PublicVisibilityIcon />
+                                  ) : (
+                                    <OnlyMeVisibilityIcon />
+                                  )}
+                                  <span>{postVisibility}</span>
+                                </span>
+                                <span aria-hidden="true">▼</span>
+                              </button>
+
+                              {isVisibilityMenuOpen ? (
+                                <div
+                                  className="dropdown-menu show mt-2 p-2"
+                                  style={{ minWidth: "11rem" }}
+                                  role="menu"
+                                >
+                                  <button
+                                    type="button"
+                                    className="dropdown-item d-flex align-items-center gap-2 rounded"
+                                    onClick={() => {
+                                      setPostVisibility("Public");
+                                      setIsVisibilityMenuOpen(false);
+                                    }}
+                                  >
+                                    <PublicVisibilityIcon />
+                                    <span>Public</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="dropdown-item d-flex align-items-center gap-2 rounded"
+                                    onClick={() => {
+                                      setPostVisibility("Only Me");
+                                      setIsVisibilityMenuOpen(false);
+                                    }}
+                                  >
+                                    <OnlyMeVisibilityIcon />
+                                    <span>Only Me</span>
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
                           <div className="_feed_inner_text_area_bottom_photo _feed_common">
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isSubmittingPost}
                             >
                               <PhotoComposerIcon />
-                              Photo
+                              {selectedUpload ? "Change Photo" : "Photo"}
                             </button>
                           </div>
                           <div className="_feed_inner_text_area_bottom_video _feed_common">
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              disabled
                             >
                               <VideoComposerIcon />
                               Video
@@ -1009,6 +2083,7 @@ export default function Home() {
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              disabled
                             >
                               <EventComposerIcon />
                               Event
@@ -1018,223 +2093,69 @@ export default function Home() {
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              disabled
                             >
                               <ArticleComposerIcon />
                               Article
                             </button>
                           </div>
                         </div>
-                        <div className="_feed_inner_text_area_btn">
+                        <div className="_feed_inner_text_area_btn w-100 d-flex justify-content-end">
                           <button
-                            type="button"
+                            type="submit"
                             className="_feed_inner_text_area_btn_link"
+                            disabled={isSubmittingPost}
+                            style={{
+                              width: "100%",
+                              minWidth: "140px",
+                              flex: "0 0 auto",
+                            }}
                           >
                             <PostComposerIcon />
-                            <span>Post</span>
+                            <span>
+                              {isSubmittingPost ? "Posting..." : "Post"}
+                            </span>
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </form>
 
-                    {posts.map((post) => (
-                      <div
-                        key={post.id}
-                        className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16"
-                      >
+                    {feedError ? (
+                      <div className="alert alert-danger" role="alert">
+                        {feedError}
+                      </div>
+                    ) : null}
+
+                    {isLoadingPosts ? (
+                      <div className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16">
                         <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
-                          <div className="_feed_inner_timeline_post_top">
-                            <div className="_feed_inner_timeline_post_box">
-                              <div className="_feed_inner_timeline_post_box_image">
-                                <img
-                                  src={post.avatar}
-                                  alt={post.author}
-                                  className="_post_img"
-                                />
-                              </div>
-                              <div className="_feed_inner_timeline_post_box_txt">
-                                <h4 className="_feed_inner_timeline_post_box_title">
-                                  {post.author}
-                                </h4>
-                                <p className="_feed_inner_timeline_post_box_para">
-                                  {post.time} . <a href="#0">Public</a>
-                                </p>
-                              </div>
-                            </div>
-                            <div className="_feed_inner_timeline_post_box_dropdown">
-                              <div className="_feed_timeline_post_dropdown">
-                                <button
-                                  type="button"
-                                  className="_feed_timeline_post_dropdown_link"
-                                  onClick={() =>
-                                    setOpenPostMenuId((value) =>
-                                      value === post.id ? null : post.id,
-                                    )
-                                  }
-                                >
-                                  Menu
-                                </button>
-                              </div>
-                              <div
-                                className={`_feed_timeline_dropdown _timeline_dropdown${openPostMenuId === post.id ? " show" : ""}`}
-                              >
-                                <ul className="_feed_timeline_dropdown_list">
-                                  <li className="_feed_timeline_dropdown_item">
-                                    <a
-                                      href="#0"
-                                      className="_feed_timeline_dropdown_link"
-                                    >
-                                      Save Post
-                                    </a>
-                                  </li>
-                                  <li className="_feed_timeline_dropdown_item">
-                                    <a
-                                      href="#0"
-                                      className="_feed_timeline_dropdown_link"
-                                    >
-                                      Turn On Notification
-                                    </a>
-                                  </li>
-                                  <li className="_feed_timeline_dropdown_item">
-                                    <a
-                                      href="#0"
-                                      className="_feed_timeline_dropdown_link"
-                                    >
-                                      Hide
-                                    </a>
-                                  </li>
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
-                          <h4 className="_feed_inner_timeline_post_title">
-                            -{post.title}
-                          </h4>
-                          <div className="_feed_inner_timeline_image">
-                            <img
-                              src={post.image}
-                              alt={post.title}
-                              className="_time_img"
-                            />
-                          </div>
-                        </div>
-                        <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
-                          <div className="_feed_inner_timeline_total_reacts_image">
-                            <img
-                              src="/images/react_img1.png"
-                              alt="react"
-                              className="_react_img1"
-                            />
-                            <img
-                              src="/images/react_img2.png"
-                              alt="react"
-                              className="_react_img"
-                            />
-                            <p className="_feed_inner_timeline_total_reacts_para">
-                              9+
-                            </p>
-                          </div>
-                          <div className="_feed_inner_timeline_total_reacts_txt">
-                            <p className="_feed_inner_timeline_total_reacts_para1">
-                              <a href="#0">
-                                <span>{post.comments}</span> Comment
-                              </a>
-                            </p>
-                            <p className="_feed_inner_timeline_total_reacts_para2">
-                              <span>{post.shares}</span> Share
-                            </p>
-                          </div>
-                        </div>
-                        <div className="_feed_inner_timeline_reaction">
-                          <button
-                            type="button"
-                            className="_feed_inner_timeline_reaction_emoji _feed_reaction _feed_reaction_active"
-                          >
-                            <span className="_feed_inner_timeline_reaction_link">
-                              Haha
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            className="_feed_inner_timeline_reaction_comment _feed_reaction"
-                          >
-                            <span className="_feed_inner_timeline_reaction_link">
-                              Comment
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            className="_feed_inner_timeline_reaction_share _feed_reaction"
-                          >
-                            <span className="_feed_inner_timeline_reaction_link">
-                              Share
-                            </span>
-                          </button>
-                        </div>
-                        <div className="_feed_inner_timeline_cooment_area">
-                          <div className="_feed_inner_comment_box">
-                            <form
-                              className="_feed_inner_comment_box_form"
-                              onSubmit={preventDefault}
-                            >
-                              <div className="_feed_inner_comment_box_content">
-                                <div className="_feed_inner_comment_box_content_image">
-                                  <img
-                                    src="/images/comment_img.png"
-                                    alt="Comment"
-                                    className="_comment_img"
-                                  />
-                                </div>
-                                <div className="_feed_inner_comment_box_content_txt">
-                                  <textarea
-                                    className="form-control _comment_textarea"
-                                    placeholder="Write a comment"
-                                  />
-                                </div>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                        <div className="_timline_comment_main">
-                          <div className="_previous_comment">
-                            <button
-                              type="button"
-                              className="_previous_comment_txt"
-                            >
-                              View 4 previous comments
-                            </button>
-                          </div>
-                          <div className="_comment_main">
-                            <div className="_comment_image">
-                              <a href="#0" className="_comment_image_link">
-                                <img
-                                  src="/images/txt_img.png"
-                                  alt="Comment avatar"
-                                  className="_comment_img1"
-                                />
-                              </a>
-                            </div>
-                            <div className="_comment_area">
-                              <div className="_comment_details">
-                                <div className="_comment_details_top">
-                                  <div className="_comment_name">
-                                    <a href="#0">
-                                      <h4 className="_comment_name_title">
-                                        Radovan SkillArena
-                                      </h4>
-                                    </a>
-                                  </div>
-                                </div>
-                                <div className="_comment_status">
-                                  <p className="_comment_status_text">
-                                    <span>{post.preview}</span>
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                          <p className="mb-0">Loading posts...</p>
                         </div>
                       </div>
-                    ))}
+                    ) : null}
+
+                    {!isLoadingPosts && visiblePosts.length === 0 && !hasMorePosts ? (
+                      <div className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16">
+                        <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
+                          <p className="mb-0">
+                            No posts yet. Write the first post from the composer
+                            above.
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {postItems}
+
+                    {(posts.length > 0 || hasMorePosts) ? (
+                      <div
+                        ref={loadMoreTriggerRef}
+                        className="_mar_b16 text-center"
+                        aria-hidden="true"
+                      >
+                        {isLoadingMorePosts ? "Loading more posts..." : ""}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -1299,63 +2220,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="_feed_bottom_fixed">
-                        {friends.map((friend) => (
-                          <div
-                            key={friend.id}
-                            className={`_feed_right_inner_area_card_ppl${friend.status === "away" ? " _feed_right_inner_area_card_ppl_inactive" : ""}`}
-                          >
-                            <div className="_feed_right_inner_area_card_ppl_box">
-                              <div className="_feed_right_inner_area_card_ppl_image">
-                                <a href="#0">
-                                  <img
-                                    src={friend.image}
-                                    alt={friend.name}
-                                    className="_box_ppl_img"
-                                  />
-                                </a>
-                              </div>
-                              <div className="_feed_right_inner_area_card_ppl_txt">
-                                <a href="#0">
-                                  <h4 className="_feed_right_inner_area_card_ppl_title">
-                                    {friend.name}
-                                  </h4>
-                                </a>
-                                <p className="_feed_right_inner_area_card_ppl_para">
-                                  {friend.title}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="_feed_right_inner_area_card_ppl_side">
-                              {friend.status === "online" ? (
-                                <div className="_feed_right_inner_area_card_ppl_side">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="14"
-                                    height="14"
-                                    fill="none"
-                                    viewBox="0 0 14 14"
-                                  >
-                                    <rect
-                                      width="12"
-                                      height="12"
-                                      x="1"
-                                      y="1"
-                                      fill="#0ACF83"
-                                      stroke="#fff"
-                                      stroke-width="2"
-                                      rx="6"
-                                    />
-                                  </svg>
-                                </div>
-                              ) : (
-                                <div className="_feed_right_inner_area_card_ppl_side">
-                                  {" "}
-                                  <span>5 minute ago</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                        {friendItems}
                       </div>
                     </div>
                   </div>

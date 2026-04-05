@@ -4,11 +4,12 @@ import storage from "redux-persist/lib/storage";
 import authReducer from "./slices/authSlice";
 import profileReducer from "./slices/profileSlice";
 
-// Configure Redux Persist
+// Only the auth session is persisted. Feed data and UI state are fetched again
+// per page load so the store does not become stale or oversized.
 const persistConfig = {
   key: "auth",
   storage,
-  whitelist: ["user", "isAuthenticated"], // Only persist auth state
+  whitelist: ["user", "isAuthenticated"],
 };
 
 const persistedAuthReducer = persistReducer(persistConfig, authReducer);
@@ -21,7 +22,8 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // Ignore Redux Persist actions and non-serializable dates in profile
+        // Redux Persist dispatches framework actions and the profile slice keeps
+        // timestamp strings, so the default serializable check needs a small exception.
         ignoredActions: ["persist/PERSIST", "persist/REHYDRATE"],
         ignoredPaths: ["profile.lastUpdated"],
       },
@@ -30,6 +32,6 @@ export const store = configureStore({
 
 export const persistor = persistStore(store);
 
-// Infer the `RootState` and `AppDispatch` types from the store itself
+// These helper types keep hooks and slices strongly typed across the app.
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

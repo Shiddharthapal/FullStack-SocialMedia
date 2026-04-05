@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import UserDetails from "@/model/user";
+import UserDetails from "@/model/User";
 import jwt from "jsonwebtoken";
 
+// POST /api/login validates credentials and returns a JWT for later requests.
 export const POST: APIRoute = async ({ request }) => {
   const headers = {
     "Content-Type": "application/json",
@@ -56,6 +57,7 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
+    // The token carries only the user id; the full profile stays in the database.
     const token = jwt.sign(
       { userId: user._id },
       import.meta.env.JWT_SECRET ||

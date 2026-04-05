@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+// UserDetails is the authentication record used by login, registration, posts,
+// comments, and reactions. Password hashing is handled in the schema hook below.
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -28,7 +30,8 @@ const userSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: () => {
-      // Get current time in Bangladesh timezone (UTC+6)
+      // The project uses Bangladesh-local timestamps in several places, so the
+      // initial createdAt value is normalized here.
       const now = new Date();
       const bdTime = new Date(
         now.toLocaleString("en-US", {
@@ -40,10 +43,10 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-// Set default name and hash password before saving
+// Hash the password only when it changes so updates do not repeatedly re-hash
+// an already-hashed value.
 userSchema.pre("save", async function (next) {
   try {
-    // Hash password if modified
     if (this.isModified("password")) {
       const salt = await bcrypt.genSalt(10);
       this.password = await bcrypt.hash(this.password, salt);
@@ -53,7 +56,7 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// Method to compare password
+// Instance method used by the login route for password verification.
 userSchema.methods.comparePassword = async function (
   candidatePassword: string,
 ) {

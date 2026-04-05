@@ -1,19 +1,18 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import UserDetails from "@/model/user";
+import UserDetails from "@/model/User";
 import jwt from "jsonwebtoken";
 
-
+// POST /api/register creates a new user document and returns a token that can
+// be used by clients that want to sign the user in right away.
 export const POST: APIRoute = async ({ request }) => {
   const headers = {
     "Content-Type": "application/json",
   };
   try {
     const body = await request.json();
-    console.log("body ==> ", body);
 
     const { email, firstName, lastName, password } = body;
-    // Connect to database
     await connect();
 
     let token = null;
@@ -31,7 +30,6 @@ export const POST: APIRoute = async ({ request }) => {
         },
       );
     }
-    // Create new user
     const users = new UserDetails({
       email: email,
       firstName: firstName,
@@ -45,7 +43,6 @@ export const POST: APIRoute = async ({ request }) => {
 
     await users.save();
 
-    // Generate JWT token
     token = jwt.sign(
       { userId: users._id },
       import.meta.env.JWT_SECRET ||
@@ -71,7 +68,6 @@ export const POST: APIRoute = async ({ request }) => {
     let errorMessage = "Internal server error";
     let statusCode = 500;
 
-    // Handle validation errors
     if (error.name === "ValidationError") {
       statusCode = 400;
       const validationError = error as {

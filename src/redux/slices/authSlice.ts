@@ -1,16 +1,17 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit"; // Use type-only import
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { UserDetails } from "../../types/user";
-// Import the correct User type
 
 interface AuthState {
   isAuthenticated: boolean;
   user: UserDetails | null;
-  token: string | null; // Add token field
+  token: string | null;
   loading: boolean;
   error: string | null;
 }
 
 const getInitialState = (): AuthState => {
+  // The slice hydrates from localStorage first so a hard refresh does not force
+  // the user back to the login page before Redux Persist finishes rehydrating.
   let token = localStorage.getItem("authToken");
   let userStr = localStorage.getItem("authUser");
 
@@ -45,14 +46,13 @@ export const authSlice = createSlice({
       state.loading = true;
       state.error = null;
     },
-    // Update payload type to use the imported User
     loginSuccess: (state, action: PayloadAction<UserDetails & { token: string }>) => {
-      // Payload is User data + token
-
-      const { token, ...userData } = action.payload; // Separate token from user data
+      // Store the token separately so components can read user details without
+      // accidentally passing sensitive auth data around.
+      const { token, ...userData } = action.payload;
       state.isAuthenticated = true;
-      state.user = userData; // Store only user data
-      state.token = token; // Store token separately
+      state.user = userData;
+      state.token = token;
       state.loading = false;
       state.error = null;
 
@@ -61,8 +61,12 @@ export const authSlice = createSlice({
         "authUser",
         JSON.stringify({
           _id: action.payload._id,
+          firstName: action.payload.firstName,
+          lastName: action.payload.lastName,
           email: action.payload.email,
-        })
+          password: "",
+          createdAt: action.payload.createdAt,
+        }),
       );
     },
     loginFailure: (state, action: PayloadAction<string>) => {
@@ -72,7 +76,7 @@ export const authSlice = createSlice({
     logout: (state) => {
       state.isAuthenticated = false;
       state.user = null;
-      state.token = null; // Clear token on logout
+      state.token = null;
       state.loading = false;
       state.error = null;
 
