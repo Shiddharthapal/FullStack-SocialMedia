@@ -6,7 +6,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import type { Post } from "@/types/post";
+import type { Post, PostVisibility } from "@/types/post";
 import { useAppSelector } from "@/redux/hooks";
 import { Link } from "react-router-dom";
 
@@ -340,6 +340,74 @@ function PenComposerIcon() {
   );
 }
 
+function PublicVisibilityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+      <path
+        d="M2.5 12h19"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+      <path
+        d="M12 2c2.6 2.7 4 6.2 4 10s-1.4 7.3-4 10c-2.6-2.7-4-6.2-4-10S9.4 4.7 12 2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function OnlyMeVisibilityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path
+        d="M7 10V7a5 5 0 0 1 10 0v3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <rect
+        x="5"
+        y="10"
+        width="14"
+        height="10"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function normalizeVisibility(visibility: PostVisibility | string) {
+  return visibility === "Public" ? "Public" : "Only Me";
+}
+
+function VisibilityBadge({ visibility }: { visibility: PostVisibility | string }) {
+  const normalizedVisibility = normalizeVisibility(visibility);
+
+  return (
+    <span className="d-inline-flex align-items-center gap-1">
+      {normalizedVisibility === "Public" ? (
+        <PublicVisibilityIcon />
+      ) : (
+        <OnlyMeVisibilityIcon />
+      )}
+      <span>{normalizedVisibility}</span>
+    </span>
+  );
+}
+
 export default function Home() {
   const { user } = useAppSelector((state) => state.auth);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -347,6 +415,7 @@ export default function Home() {
   const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [composerText, setComposerText] = useState("");
+  const [postVisibility, setPostVisibility] = useState<PostVisibility>("Public");
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
   const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
@@ -359,6 +428,15 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
   const selectedUpload = useMemo(() => uploadedFiles[0] ?? null, [uploadedFiles]);
+  const visiblePosts = useMemo(
+    () =>
+      posts.filter(
+        (post) =>
+          normalizeVisibility(post.visibility) === "Public" ||
+          post.author.id === user?._id,
+      ),
+    [posts, user?._id],
+  );
 
   useEffect(() => {
     setPosts([]);
@@ -550,7 +628,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append("authorId", user._id);
       formData.append("title", trimmedText);
-      formData.append("visibility", "Public");
+      formData.append("visibility", postVisibility);
       uploadedFiles.forEach((fileData) => {
         formData.append(`files`, fileData.file);
         formData.append(`documentNames`, fileData.documentName);
@@ -573,6 +651,7 @@ export default function Home() {
 
       setPosts((currentPosts) => [data.post as Post, ...currentPosts]);
       setComposerText("");
+      setPostVisibility("Public");
       clearUploadedFiles();
       setComposerSuccess("Post created successfully.");
     } catch (error) {
@@ -716,7 +795,7 @@ export default function Home() {
 
   const postItems = useMemo(
     () =>
-      posts.map((post) => (
+      visiblePosts.map((post) => (
         <div
           key={post.id}
           className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16"
@@ -737,7 +816,9 @@ export default function Home() {
                   </h4>
                   <p className="_feed_inner_timeline_post_box_para">
                     {formatRelativeTime(post.createdAt)} .{" "}
-                    <a href="#0">{post.visibility}</a>
+                    <span className="d-inline-flex align-items-center">
+                      <VisibilityBadge visibility={post.visibility} />
+                    </span>
                   </p>
                 </div>
               </div>
@@ -983,7 +1064,7 @@ export default function Home() {
           </div>
         </div>
       )),
-    [openPostMenuId, posts],
+    [openPostMenuId, visiblePosts],
   );
 
   const friendItems = useMemo(
@@ -1656,6 +1737,32 @@ export default function Home() {
 
                       <div className="_feed_inner_text_area_bottom">
                         <div className="_feed_inner_text_area_item">
+                          <div className="_feed_common">
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${postVisibility === "Public" ? "btn-primary" : "btn-outline-secondary"}`}
+                                onClick={() => setPostVisibility("Public")}
+                                disabled={isSubmittingPost}
+                              >
+                                <span className="d-inline-flex align-items-center gap-1">
+                                  <PublicVisibilityIcon />
+                                  <span>Public</span>
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${postVisibility === "Only Me" ? "btn-primary" : "btn-outline-secondary"}`}
+                                onClick={() => setPostVisibility("Only Me")}
+                                disabled={isSubmittingPost}
+                              >
+                                <span className="d-inline-flex align-items-center gap-1">
+                                  <OnlyMeVisibilityIcon />
+                                  <span>Only Me</span>
+                                </span>
+                              </button>
+                            </div>
+                          </div>
                           <div className="_feed_inner_text_area_bottom_photo _feed_common">
                             <button
                               type="button"
@@ -1727,7 +1834,7 @@ export default function Home() {
                       </div>
                     ) : null}
 
-                    {!isLoadingPosts && posts.length === 0 ? (
+                    {!isLoadingPosts && visiblePosts.length === 0 && !hasMorePosts ? (
                       <div className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16">
                         <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
                           <p className="mb-0">
@@ -1740,7 +1847,7 @@ export default function Home() {
 
                     {postItems}
 
-                    {posts.length > 0 ? (
+                    {(posts.length > 0 || hasMorePosts) ? (
                       <div
                         ref={loadMoreTriggerRef}
                         className="_mar_b16 text-center"
