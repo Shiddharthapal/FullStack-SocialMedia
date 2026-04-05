@@ -1737,8 +1737,11 @@ export default function Home() {
                         </div>
                       ) : null}
 
-                      <div className="_feed_inner_text_area_bottom">
-                        <div className="_feed_inner_text_area_item">
+                      <div className="_feed_inner_text_area_bottom d-flex flex-column align-items-stretch gap-3 h-auto py-3">
+                        <div
+                          className="_feed_inner_text_area_item d-flex flex-wrap align-items-center w-100"
+                          style={{ rowGap: "10px" }}
+                        >
                           <div className="_feed_common">
                             <div className="position-relative">
                               <button
@@ -1836,11 +1839,16 @@ export default function Home() {
                             </button>
                           </div>
                         </div>
-                        <div className="_feed_inner_text_area_btn">
+                        <div className="_feed_inner_text_area_btn w-100 d-flex justify-content-end">
                           <button
                             type="submit"
                             className="_feed_inner_text_area_btn_link"
                             disabled={isSubmittingPost}
+                            style={{
+                              width: "100%",
+                              minWidth: "140px",
+                              flex: "0 0 auto",
+                            }}
                           >
                             <PostComposerIcon />
                             <span>
