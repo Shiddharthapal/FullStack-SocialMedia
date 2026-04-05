@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import UserDetails from "@/model/User";
+import UserDetails from "@/model/user";
 import jwt from "jsonwebtoken";
 
 // POST /api/register creates a new user document and returns a token that can

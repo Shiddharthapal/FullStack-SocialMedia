@@ -1,6 +1,6 @@
 import { b5 as AstroUserError } from './sequence_CQ89Ml5V.mjs';
-import { b as baseService, i as isESMImportedImage } from './generic_VCKGRJJI.mjs';
-import './ssr-function_DaTjvdtN.mjs';
+import { b as baseService, i as isESMImportedImage } from './generic_De235Kc7.mjs';
+import './ssr-function_jZthzR3F.mjs';
 
 const SUPPORTED_FORMATS = ["avif", "jpg", "png", "webp"];
 const QUALITY_NAMES = { low: 25, mid: 50, high: 90, max: 100 };

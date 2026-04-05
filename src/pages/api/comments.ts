@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
 import mongoose from "mongoose";
 import Post from "@/model/Post";
-import UserDetails from "@/model/User";
+import UserDetails from "@/model/user";
 
 const headers = {
   "Content-Type": "application/json",

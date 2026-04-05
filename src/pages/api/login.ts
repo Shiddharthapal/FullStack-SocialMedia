@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import UserDetails from "@/model/User";
+import UserDetails from "@/model/user";
 import jwt from "jsonwebtoken";
 
 // POST /api/login validates credentials and returns a JWT for later requests.
