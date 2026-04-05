@@ -428,10 +428,10 @@ export default function Home() {
   const [composerSuccess, setComposerSuccess] = useState("");
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
-  const [likedPostIds, setLikedPostIds] = useState<Record<string, boolean>>({});
   const [submittingCommentPostId, setSubmittingCommentPostId] = useState<
     string | null
   >(null);
+  const [reactingPostId, setReactingPostId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
   const selectedUpload = useMemo(() => uploadedFiles[0] ?? null, [uploadedFiles]);
@@ -464,14 +464,22 @@ export default function Home() {
           setIsLoadingMorePosts(true);
         }
 
+        const searchParams = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(POSTS_PAGE_SIZE),
+        });
+
+        if (user?._id) {
+          searchParams.set("userId", user._id);
+        }
+
         const response = await fetch(
-          `/api/getspost?page=${currentPage}&limit=${POSTS_PAGE_SIZE}`,
+          `/api/getspost?${searchParams.toString()}`,
           {
             signal: controller.signal,
           },
         );
         const data = await response.json();
-        console.log("data ==> ", data);
 
         if (!response.ok) {
           throw new Error(data.message || "Failed to fetch posts");
@@ -740,11 +748,26 @@ export default function Home() {
         throw new Error(data.message || "Failed to add comment");
       }
 
-      setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          (post.id ?? post._id) === postId ? data.post as Post : post,
-        ),
-      );
+        const nextLikedState = data.action === "liked";
+
+        setPosts((currentPosts) =>
+          currentPosts.map((post) => {
+            if ((post.id ?? post._id) !== postId) {
+              return post;
+            }
+
+            const updatedPost = (data.post as Post) ?? post;
+
+            return {
+              ...post,
+              ...updatedPost,
+              viewerHasLiked: nextLikedState,
+              reactionCount: Number(
+                updatedPost.reactionCount ?? post.reactionCount ?? 0,
+              ),
+            };
+          }),
+        );
       setCommentDrafts((currentDrafts) => ({
         ...currentDrafts,
         [postId]: "",
@@ -761,11 +784,46 @@ export default function Home() {
     }
   };
 
-  const handleToggleLike = (postId: string) => {
-    setLikedPostIds((currentLikedPosts) => ({
-      ...currentLikedPosts,
-      [postId]: !currentLikedPosts[postId],
-    }));
+  const handleToggleLike = async (postId: string) => {
+    if (!user?._id) {
+      setFeedError("You must be logged in to react to a post.");
+      return;
+    }
+
+    try {
+      setReactingPostId(postId);
+      setFeedError("");
+
+      const response = await fetch("/api/reaction", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          postId,
+          userId: user._id,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update reaction");
+      }
+
+      setPosts((currentPosts) =>
+        currentPosts.map((post) =>
+          (post.id ?? post._id) === postId ? data.post as Post : post,
+        ),
+      );
+    } catch (error) {
+      setFeedError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update reaction",
+      );
+    } finally {
+      setReactingPostId(null);
+    }
   };
 
   const notificationItems = useMemo(
@@ -901,7 +959,19 @@ export default function Home() {
       visiblePosts.map((post) => {
         const postId = post.id ?? post._id ?? "";
         const postComments = Array.isArray(post.comments) ? post.comments : [];
-        const isLiked = Boolean(likedPostIds[postId]);
+        const isLiked =
+          typeof post.viewerHasLiked === "boolean"
+            ? post.viewerHasLiked
+            : Boolean(
+                user?._id &&
+                  Array.isArray(post.reactions) &&
+                  post.reactions.some(
+                    (reaction) =>
+                      String(reaction?.userId ?? "") === String(user._id),
+                  ),
+              );
+        const isUpdatingReaction = reactingPostId === postId;
+        const reactionColor = isLiked ? "#0d6efd" : "#666";
 
         return (
         <div
@@ -996,7 +1066,9 @@ export default function Home() {
                 alt="react"
                 className="_react_img"
               />
-              <p className="_feed_inner_timeline_total_reacts_para">9+</p>
+              <p className="_feed_inner_timeline_total_reacts_para">
+                {post.reactionCount}
+              </p>
             </div>
             <div className="_feed_inner_timeline_total_reacts_txt">
               <p className="_feed_inner_timeline_total_reacts_para1">
@@ -1009,37 +1081,53 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="_feed_inner_timeline_reaction">
-            <button
-              type="button"
-              className={`_feed_inner_timeline_reaction_emoji _feed_reaction${isLiked ? " _feed_reaction_active" : ""}`}
-              onClick={() => handleToggleLike(postId)}
-            >
-              <span className="_feed_inner_timeline_reaction_link">
-                {" "}
-                <span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    viewBox="0 0 24 24"
+            <div className="_feed_inner_timeline_reaction">
+              <button
+                type="button"
+                className={`_feed_inner_timeline_reaction_emoji _feed_reaction${isLiked ? " _feed_reaction_active" : ""}`}
+                onClick={() => handleToggleLike(postId)}
+                disabled={isUpdatingReaction}
+                aria-pressed={isLiked}
+                style={{
+                  color: reactionColor,
+                  fontWeight: isLiked ? 600 : 500,
+                }}
+              >
+                <span className="_feed_inner_timeline_reaction_link">
+                  {" "}
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      color: reactionColor,
+                    }}
                   >
-                    <path
-                      d="M14 9V5.5A2.5 2.5 0 0 0 11.5 3L8 10v11h9.24a2 2 0 0 0 1.97-1.64l1.38-7A2 2 0 0 0 18.63 10H14Z"
-                      fill={isLiked ? "#0d6efd" : "none"}
-                      stroke={isLiked ? "#0d6efd" : "#666"}
-                      strokeWidth="1.8"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M8 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4"
-                      stroke={isLiked ? "#0d6efd" : "#666"}
-                      strokeWidth="1.8"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  {isLiked ? "Unlike" : "Like"}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M14 9V5.5A2.5 2.5 0 0 0 11.5 3L8 10v11h9.24a2 2 0 0 0 1.97-1.64l1.38-7A2 2 0 0 0 18.63 10H14Z"
+                        fill={isLiked ? "currentColor" : "none"}
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M8 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    {isUpdatingReaction
+                      ? "Updating..."
+                      : isLiked
+                      ? "Unlike"
+                      : "Like"}
                 </span>
               </span>
             </button>
@@ -1223,8 +1311,8 @@ export default function Home() {
       commentDrafts,
       commentErrors,
       handleCreateComment,
-      likedPostIds,
       openPostMenuId,
+      reactingPostId,
       submittingCommentPostId,
       visiblePosts,
     ],

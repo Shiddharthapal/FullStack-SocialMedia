@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
-import Post from "@/model/post";
+import Post from "@/model/Post";
 
 const headers = {
   "Content-Type": "application/json",
@@ -31,7 +31,23 @@ function serializeComment(commentDocument: any) {
   };
 }
 
-function serializePost(postDocument: any) {
+function serializeReaction(reactionDocument: any) {
+  const reaction = typeof reactionDocument?.toJSON === "function"
+    ? reactionDocument.toJSON()
+    : reactionDocument;
+
+  return {
+    id: String(reaction?.id ?? reaction?._id ?? ""),
+    postId: String(reaction?.postId ?? ""),
+    userId: String(reaction?.userId ?? ""),
+    type: String(reaction?.type ?? "Like"),
+    createdAt: reaction?.createdAt
+      ? new Date(reaction.createdAt).toISOString()
+      : new Date().toISOString(),
+  };
+}
+
+function serializePost(postDocument: any, currentUserId = "") {
   const post = typeof postDocument.toJSON === "function"
     ? postDocument.toJSON()
     : postDocument;
@@ -63,6 +79,15 @@ function serializePost(postDocument: any) {
     comments: Array.isArray(post.comments)
       ? post.comments.map(serializeComment)
       : [],
+    reactions: Array.isArray(post.reactions)
+      ? post.reactions.map(serializeReaction)
+      : [],
+    viewerHasLiked: currentUserId
+      ? Array.isArray(post.reactions) &&
+        post.reactions.some(
+          (reaction: any) => String(reaction?.userId ?? "") === currentUserId,
+        )
+      : false,
   };
 }
 
@@ -74,6 +99,7 @@ export const GET: APIRoute = async ({ request }) => {
       20,
       Math.max(1, Number(url.searchParams.get("limit") ?? "5")),
     );
+    const currentUserId = String(url.searchParams.get("userId") ?? "").trim();
     const skip = (page - 1) * limit;
 
     await connect();
@@ -86,7 +112,7 @@ export const GET: APIRoute = async ({ request }) => {
 
     return new Response(
       JSON.stringify({
-        posts: posts.map(serializePost),
+        posts: posts.map((post) => serializePost(post, currentUserId)),
         page,
         limit,
         hasMore,

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
 import { bunnyStorageService } from "@/lib/bunny-cdn";
-import Post from "@/model/post";
+import Post from "@/model/Post";
 import UserDetails from "@/model/User";
 
 const headers = {
@@ -44,6 +44,22 @@ function serializeComment(commentDocument: any) {
     updatedAt: comment?.updatedAt
       ? new Date(comment.updatedAt).toISOString()
       : undefined,
+  };
+}
+
+function serializeReaction(reactionDocument: any) {
+  const reaction = typeof reactionDocument?.toJSON === "function"
+    ? reactionDocument.toJSON()
+    : reactionDocument;
+
+  return {
+    id: String(reaction?.id ?? reaction?._id ?? ""),
+    postId: String(reaction?.postId ?? ""),
+    userId: String(reaction?.userId ?? ""),
+    type: String(reaction?.type ?? "Like"),
+    createdAt: reaction?.createdAt
+      ? new Date(reaction.createdAt).toISOString()
+      : new Date().toISOString(),
   };
 }
 
@@ -99,6 +115,10 @@ function serializePost(postDocument: any) {
     comments: Array.isArray(post.comments)
       ? post.comments.map(serializeComment)
       : [],
+    reactions: Array.isArray(post.reactions)
+      ? post.reactions.map(serializeReaction)
+      : [],
+    viewerHasLiked: false,
   };
 }
 
@@ -204,6 +224,7 @@ export const POST: APIRoute = async ({ request }) => {
       shareCount: 0,
       topReactions: [],
       comments: [],
+      reactions: [],
     });
 
     return new Response(

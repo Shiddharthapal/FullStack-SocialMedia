@@ -52,6 +52,8 @@ export interface Post {
   commentPreview?: string; 
   topReactions: ReactionType[];
   comments: PostComment[];
+  reactions?: PostReaction[];
+  viewerHasLiked?: boolean;
   createdAt: string; 
   updatedAt?: string;
 }

@@ -10,12 +10,10 @@ const headers = {
 
 const DEFAULT_POST_AVATAR = "/images/post_img.png";
 
-// ✅ FIXED: read "authorid" not "id"
 function serializeComment(commentDocument: any) {
-  const comment =
-    typeof commentDocument?.toJSON === "function"
-      ? commentDocument.toJSON()
-      : commentDocument;
+  const comment = typeof commentDocument?.toJSON === "function"
+    ? commentDocument.toJSON()
+    : commentDocument;
 
   return {
     id: String(comment?.id ?? comment?._id ?? ""),
@@ -35,11 +33,26 @@ function serializeComment(commentDocument: any) {
   };
 }
 
-function serializePost(postDocument: any) {
-  const post =
-    typeof postDocument?.toJSON === "function"
-      ? postDocument.toJSON()
-      : postDocument;
+function serializeReaction(reactionDocument: any) {
+  const reaction = typeof reactionDocument?.toJSON === "function"
+    ? reactionDocument.toJSON()
+    : reactionDocument;
+
+  return {
+    id: String(reaction?.id ?? reaction?._id ?? ""),
+    postId: String(reaction?.postId ?? ""),
+    userId: String(reaction?.userId ?? ""),
+    type: String(reaction?.type ?? "Like"),
+    createdAt: reaction?.createdAt
+      ? new Date(reaction.createdAt).toISOString()
+      : new Date().toISOString(),
+  };
+}
+
+function serializePost(postDocument: any, currentUserId = "") {
+  const post = typeof postDocument?.toJSON === "function"
+    ? postDocument.toJSON()
+    : postDocument;
 
   return {
     id: String(post?.id ?? post?._id ?? ""),
@@ -68,15 +81,24 @@ function serializePost(postDocument: any) {
     comments: Array.isArray(post?.comments)
       ? post.comments.map(serializeComment)
       : [],
+    reactions: Array.isArray(post?.reactions)
+      ? post.reactions.map(serializeReaction)
+      : [],
+    viewerHasLiked: currentUserId
+      ? Array.isArray(post?.reactions) &&
+        post.reactions.some(
+          (reaction: any) => String(reaction?.userId ?? "") === currentUserId,
+        )
+      : false,
   };
 }
 
 export const PATCH: APIRoute = async ({ request }) => {
   try {
-    const { postId, authorId, content } = await request.json();
+    const { postId, userId } = await request.json();
+    
     const trimmedPostId = String(postId ?? "").trim();
-    const trimmedAuthorId = String(authorId ?? "").trim();
-    const trimmedContent = String(content ?? "").trim();
+    const trimmedUserId = String(userId ?? "").trim();
 
     if (!trimmedPostId) {
       return new Response(JSON.stringify({ message: "Post is required" }), {
@@ -85,18 +107,11 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
-    if (!trimmedAuthorId) {
-      return new Response(JSON.stringify({ message: "Author is required" }), {
+    if (!trimmedUserId) {
+      return new Response(JSON.stringify({ message: "User is required" }), {
         status: 400,
         headers,
       });
-    }
-
-    if (!trimmedContent) {
-      return new Response(
-        JSON.stringify({ message: "Comment cannot be empty" }),
-        { status: 400, headers },
-      );
     }
 
     if (!mongoose.Types.ObjectId.isValid(trimmedPostId)) {
@@ -105,8 +120,9 @@ export const PATCH: APIRoute = async ({ request }) => {
         headers,
       });
     }
-    if (!mongoose.Types.ObjectId.isValid(trimmedAuthorId)) {
-      return new Response(JSON.stringify({ message: "Invalid author ID" }), {
+
+    if (!mongoose.Types.ObjectId.isValid(trimmedUserId)) {
+      return new Response(JSON.stringify({ message: "Invalid user ID" }), {
         status: 400,
         headers,
       });
@@ -115,7 +131,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     await connect();
 
     const [user, post] = await Promise.all([
-      UserDetails.findById(trimmedAuthorId),
+      UserDetails.findById(trimmedUserId),
       Post.findById(trimmedPostId),
     ]);
 
@@ -133,32 +149,57 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
-    const authorName =
-      `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-      String(user.email).split("@")[0];
-
-    const newComment = {
-      id: new mongoose.Types.ObjectId().toString(),
-      postId: String(post._id),
-      author: {
-        id: String(user._id),
-        name: authorName,
-        avatar: DEFAULT_POST_AVATAR,
-      },
-      content: trimmedContent,
-    };
-
-    const updatedPost = await Post.findByIdAndUpdate(
-      trimmedPostId,
-      {
-        $push: { comments: newComment },
-        $set: { commentPreview: trimmedContent },
-      },
-      {
-        new: true,
-        runValidators: true,
-      },
+    const currentReactions = Array.isArray(post.reactions) ? post.reactions : [];
+    const hasExistingReaction = currentReactions.some(
+      (reaction: any) => String(reaction?.userId ?? "") === trimmedUserId,
     );
+
+    let action: "liked" | "unliked";
+    let updatedPost;
+
+    if (hasExistingReaction) {
+      updatedPost = await Post.findOneAndUpdate(
+        { _id: trimmedPostId },
+        {
+          $pull: {
+            reactions: {
+              userId: trimmedUserId,
+            },
+          },
+        },
+        {
+          new: true,
+        },
+      );
+      action = "unliked";
+    } else {
+      const now = new Date();
+
+      updatedPost = await Post.findOneAndUpdate(
+        {
+          _id: trimmedPostId,
+          "reactions.userId": {
+            $ne: trimmedUserId,
+          },
+        },
+        {
+          $push: {
+            reactions: {
+              id: new mongoose.Types.ObjectId().toString(),
+              postId: trimmedPostId,
+              userId: trimmedUserId,
+              type: "Like",
+              createdAt: now,
+              updatedAt: now,
+            },
+          },
+        },
+        {
+          new: true,
+        },
+      );
+      action = "liked";
+    }
 
     if (!updatedPost) {
       return new Response(JSON.stringify({ message: "Post not found" }), {
@@ -167,15 +208,22 @@ export const PATCH: APIRoute = async ({ request }) => {
       });
     }
 
-    updatedPost.commentCount = Array.isArray(updatedPost.comments)
-      ? updatedPost.comments.length
-      : 0;
+    const updatedReactions = Array.isArray(updatedPost.reactions)
+      ? updatedPost.reactions
+      : [];
+
+    updatedPost.reactionCount = updatedReactions.length;
+    updatedPost.topReactions = updatedReactions.length > 0 ? ["Like"] : [];
+    updatedPost.markModified("reactions");
     await updatedPost.save();
 
     return new Response(
       JSON.stringify({
-        message: "Comment added successfully",
-        post: serializePost(updatedPost),
+        message: action === "liked"
+          ? "Post liked successfully"
+          : "Post unliked successfully",
+        action,
+        post: serializePost(updatedPost, trimmedUserId),
       }),
       {
         status: 200,
@@ -183,12 +231,15 @@ export const PATCH: APIRoute = async ({ request }) => {
       },
     );
   } catch (error) {
-    console.error("Add comment error:", error);
+    console.error("Toggle reaction error:", error);
 
-    return new Response(JSON.stringify({ message: "Failed to add comment" }), {
-      status: 500,
-      headers,
-    });
+    return new Response(
+      JSON.stringify({ message: "Failed to update reaction" }),
+      {
+        status: 500,
+        headers,
+      },
+    );
   }
 };
 

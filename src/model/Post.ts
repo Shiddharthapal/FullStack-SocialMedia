@@ -25,6 +25,19 @@ const postCommentSchema = new mongoose.Schema(
   },
 );
 
+const postReactionSchema = new mongoose.Schema(
+  {
+    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    postId: { type: String },
+    userId: { type: String },
+    type: { type: String, enum: REACTION_TYPE_VALUES, default: "Like" },
+  },
+  {
+    timestamps: true,
+    _id: false,
+  },
+);
+
 const postSchema =new mongoose.Schema(
   {
     author:         { type: postAuthorSchema },
@@ -37,6 +50,7 @@ const postSchema =new mongoose.Schema(
     shareCount:     { type: Number, default: 0, min: 0 },
     commentPreview: { type: String, default: undefined },
     comments:       { type: [postCommentSchema], default: [] },
+    reactions:      { type: [postReactionSchema], default: [] },
     topReactions:   [{ type: String, enum: REACTION_TYPE_VALUES }],
   },
   {
@@ -45,5 +59,19 @@ const postSchema =new mongoose.Schema(
 );
 
 
-const Post = mongoose.models.Post || mongoose.model("Post", postSchema);
+const existingPostModel = mongoose.models.Post as mongoose.Model<any> | undefined;
+
+if (
+  existingPostModel &&
+  (
+    !existingPostModel.schema.path("comments") ||
+    !existingPostModel.schema.path("reactions")
+  )
+) {
+  mongoose.deleteModel("Post");
+}
+
+const Post =
+  (mongoose.models.Post as mongoose.Model<any> | undefined) ||
+  mongoose.model("Post", postSchema);
 export default Post;
