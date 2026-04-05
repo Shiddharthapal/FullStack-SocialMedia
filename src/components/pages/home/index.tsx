@@ -741,7 +741,7 @@ export default function Home() {
 
       setPosts((currentPosts) =>
         currentPosts.map((post) =>
-          post._id === postId ? data.post as Post : post,
+          (post.id ?? post._id) === postId ? data.post as Post : post,
         ),
       );
       setCommentDrafts((currentDrafts) => ({
@@ -890,9 +890,13 @@ export default function Home() {
 
   const postItems = useMemo(
     () =>
-      visiblePosts.map((post) => (
+      visiblePosts.map((post) => {
+        const postId = post.id ?? post._id ?? "";
+        const postComments = Array.isArray(post.comments) ? post.comments : [];
+
+        return (
         <div
-          key={post._id}
+          key={postId}
           className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16"
         >
           <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
@@ -924,7 +928,7 @@ export default function Home() {
                     className="_feed_timeline_post_dropdown_link"
                     onClick={() =>
                       setOpenPostMenuId((value) =>
-                        value === post._id ? null : post._id,
+                        value === postId ? null : postId,
                       )
                     }
                   >
@@ -936,7 +940,7 @@ export default function Home() {
                   </button>
                 </div>
                 <div
-                  className={`_feed_timeline_dropdown _timeline_dropdown${openPostMenuId === post._id ? " show" : ""}`}
+                  className={`_feed_timeline_dropdown _timeline_dropdown${openPostMenuId === postId ? " show" : ""}`}
                 >
                   <ul className="_feed_timeline_dropdown_list">
                     <li className="_feed_timeline_dropdown_item">
@@ -988,7 +992,7 @@ export default function Home() {
             <div className="_feed_inner_timeline_total_reacts_txt">
               <p className="_feed_inner_timeline_total_reacts_para1">
                 <a href="#0">
-                  <span>{post.commentCount}</span> Comment
+                  <span>{post.comments.length}</span> Comment
                 </a>
               </p>
               <p className="_feed_inner_timeline_total_reacts_para2">
@@ -1083,7 +1087,7 @@ export default function Home() {
             <div className="_feed_inner_comment_box">
               <form
                 className="_feed_inner_comment_box_form"
-                onSubmit={(event) => handleCreateComment(event, post.id)}
+                onSubmit={(event) => handleCreateComment(event, postId)}
               >
                 <div className="_feed_inner_comment_box_content">
                   <div className="_feed_inner_comment_box_content_image">
@@ -1097,11 +1101,11 @@ export default function Home() {
                     <textarea
                       className="form-control _comment_textarea"
                       placeholder="Write a comment"
-                      value={commentDrafts[post.id] ?? ""}
+                      value={commentDrafts[postId] ?? ""}
                       onChange={(event) =>
-                        handleCommentDraftChange(post.id, event.target.value)
+                        handleCommentDraftChange(postId, event.target.value)
                       }
-                      disabled={submittingCommentPostId === post.id}
+                      disabled={submittingCommentPostId === postId}
                     />
                   </div>
                 </div>
@@ -1110,8 +1114,8 @@ export default function Home() {
                     type="submit"
                     className="_feed_inner_comment_box_icon_btn"
                     disabled={
-                      submittingCommentPostId === post.id ||
-                      !(commentDrafts[post.id] ?? "").trim()
+                      submittingCommentPostId === postId ||
+                      !(commentDrafts[postId] ?? "").trim()
                     }
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
@@ -1122,38 +1126,38 @@ export default function Home() {
                     type="submit"
                     className="btn btn-primary btn-sm ms-2"
                     disabled={
-                      submittingCommentPostId === post.id ||
-                      !(commentDrafts[post.id] ?? "").trim()
+                      submittingCommentPostId === postId ||
+                      !(commentDrafts[postId] ?? "").trim()
                     }
                   >
-                    {submittingCommentPostId === post.id ? "Sending..." : "Send"}
+                    {submittingCommentPostId === postId ? "Sending..." : "Send"}
                   </button>
                 </div>
               </form>
-              {commentErrors[post.id] ? (
+              {commentErrors[postId] ? (
                 <p className="text-danger small mt-2 mb-0">
-                  {commentErrors[post.id]}
+                  {commentErrors[postId]}
                 </p>
               ) : null}
             </div>
           </div>
           <div className="_timline_comment_main">
-            {post?.comments.length > 3 ? (
+            {postComments.length > 3 ? (
               <div className="_previous_comment">
                 <button
                   type="button"
                   className="_previous_comment_txt"
                 >
-                  View {post?.comments.length - 3} previous comments
+                  View {postComments.length - 3} previous comments
                 </button>
               </div>
             ) : null}
-            {post?.comments.length > 0 ? (
-              post?.comments
+            {postComments.length > 0 ? (
+              postComments
                 .slice(-3)
                 .reverse()
                 .map((comment) => (
-                  <div className="_comment_main" key={comment._id}>
+                  <div className="_comment_main" key={comment.id ?? comment._id}>
                     <div className="_comment_image">
                       <a href="#0" className="_comment_image_link">
                         <img
@@ -1178,7 +1182,10 @@ export default function Home() {
                           <p className="_comment_status_text">
                             <span>{comment.content}</span>
                           </p>
-                          <p className="small text-muted mb-0 mt-1">
+                          <p
+                            className="text-muted mb-0 mt-1"
+                            style={{ fontSize: "11px", lineHeight: 1.2 }}
+                          >
                             {formatRelativeTime(comment.createdAt)}
                           </p>
                         </div>
@@ -1201,7 +1208,7 @@ export default function Home() {
             )}
           </div>
         </div>
-      )),
+      )}),
     [
       commentDrafts,
       commentErrors,

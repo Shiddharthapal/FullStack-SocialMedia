@@ -5,7 +5,8 @@ export type PostVisibility = "Public" | "Friends" | "Only Me";
 export type ReactionType = "Like" | "Love" | "Haha" | "Wow" | "Sad" | "Angry";
 
 export interface PostAuthor {
-  authorid: string;
+  id: string;
+  authorid?: string;
   name: string;
   avatar: string;
 }
@@ -19,7 +20,8 @@ export interface PostReaction {
 }
 
 export interface PostComment {
-    _id:string;
+  id: string;
+  _id?: string;
   postId: string;
   author: PostAuthor;
   content: string;
@@ -28,14 +30,16 @@ export interface PostComment {
 }
 
 export interface PostShare {
-  _id: string;
+  id: string;
+  _id?: string;
   postId: string;
   userId: string;
   createdAt: string;
 }
 
 export interface Post {
-    _id: string;
+  id: string;
+  _id?: string;
   author: PostAuthor;
   title: string;
   image?: string; 
