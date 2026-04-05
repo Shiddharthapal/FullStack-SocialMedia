@@ -1,5 +1,7 @@
 import type { StorageObject, ApiResponse } from "@/types/bunny_cdn_type";
 
+// This wrapper keeps Bunny CDN upload logic out of the API routes so post
+// creation can focus on validation and persistence.
 const BUNNY_STORAGE_ZONE_NAME =
   process.env.BUNNY_STORAGE_ZONE_NAME || "fullstackdev";
 const BUNNY_STORAGE_REGION_HOSTNAME =

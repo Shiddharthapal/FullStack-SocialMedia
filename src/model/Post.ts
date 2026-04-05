@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import type { PostVisibility, ReactionType } from "@/types/post";
 
+// The post model stores the feed item plus embedded comments and reactions.
+// That keeps the home feed read path simple: one query returns the full card.
 const POST_VISIBILITY_VALUES = ["Public", "Friends", "Only Me"] as const satisfies readonly PostVisibility[];
 const REACTION_TYPE_VALUES = ["Like", "Love", "Haha", "Wow", "Sad", "Angry"] as const satisfies readonly ReactionType[];
 
@@ -38,7 +40,7 @@ const postReactionSchema = new mongoose.Schema(
   },
 );
 
-const postSchema =new mongoose.Schema(
+const postSchema = new mongoose.Schema(
   {
     author:         { type: postAuthorSchema },
     title:          { type: String, minlength: [1, "Post title cannot be empty"] },
@@ -61,6 +63,8 @@ const postSchema =new mongoose.Schema(
 
 const existingPostModel = mongoose.models.Post as mongoose.Model<any> | undefined;
 
+// In development Mongoose can reuse an older compiled model after schema edits.
+// If the cached model is missing nested arrays added later, rebuild it.
 if (
   existingPostModel &&
   (

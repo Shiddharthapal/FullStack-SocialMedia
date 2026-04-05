@@ -8,6 +8,8 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+// POST /api/posts creates a new feed item. It accepts multipart form data so
+// the same route can support both text-only posts and posts with an image.
 const DEFAULT_POST_AVATAR = "/images/post_img.png";
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const POST_VISIBILITY_VALUES = new Set(["Public", "Friends", "Only Me"]);
@@ -20,10 +22,14 @@ function sanitizeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase();
 }
 
+// Local development can fall back to an inline data URL if Bunny public delivery
+// is not configured yet.
 function createDataUrl(bytes: Buffer, mimeType: string) {
   return `data:${mimeType};base64,${bytes.toString("base64")}`;
 }
 
+// These serializers normalize nested Mongoose documents before they are sent
+// back to the React feed.
 function serializeComment(commentDocument: any) {
   const comment = typeof commentDocument?.toJSON === "function"
     ? commentDocument.toJSON()
@@ -134,6 +140,7 @@ export const POST: APIRoute = async ({ request }) => {
       : "Public";
     const imageInput = formData.get("image");
 
+    // Post text is required. Images remain optional.
     if (!authorId) {
       return new Response(
         JSON.stringify({
@@ -176,6 +183,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     let image: string | undefined;
 
+    // Keep file validation in the API so the server never depends on client-side checks.
     if (imageInput instanceof File && imageInput.size > 0) {
       if (!imageInput.type.startsWith("image/")) {
         return new Response(

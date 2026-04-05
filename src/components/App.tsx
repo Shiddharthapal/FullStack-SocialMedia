@@ -9,7 +9,7 @@ import Home from "./pages/home/index";
 import Register from "./pages/register/index";
 import ProtectedRoute from "./ProtectedRoute";
 
-
+// App wires together the global providers and the small route tree used by the UI.
 export default function App() {
   return (
     <Provider store={store}>
@@ -17,10 +17,11 @@ export default function App() {
         <Router>
           <Routes>
             <Route element={<Layout />}>
-              
+              {/* Public auth screens */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
+              {/* The feed stays behind the auth guard and uses the shared layout */}
               <Route
                 path="/"
                 element={
@@ -29,7 +30,6 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
-              
             </Route>
           </Routes>
         </Router>

@@ -17,6 +17,8 @@ const initialForm: LoginForm = {
   password: "",
 };
 
+// Login is a controlled form that calls the Astro login API and then stores the
+// authenticated user in Redux so the protected home route can render.
 export default function Login() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -39,6 +41,7 @@ export default function Login() {
     event.preventDefault();
 
     try {
+      // Keep Redux and local UI state in sync while the request is in flight.
       setLoading(true);
       setError("");
       dispatch(loginStart());
@@ -78,6 +81,7 @@ export default function Login() {
         }),
       );
 
+      // Clearing the form avoids stale credentials if the user returns here.
       setForm(initialForm);
       navigate("/");
     } catch {

@@ -1,3 +1,4 @@
+// Minimal authenticated user shape stored in Redux and reused by the UI.
 export interface UserDetails {
   _id: string;
   firstName: string;

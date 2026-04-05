@@ -17,6 +17,8 @@ const initialForm: RegisterForm = {
   confirmPassword: "",
 };
 
+// Register handles only account creation. After a successful submit the user is
+// redirected to login, where the authenticated Redux session is established.
 export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState<RegisterForm>(initialForm);
@@ -38,6 +40,8 @@ export default function Register() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    // Keep simple client-side validation close to the form so obvious mistakes
+    // do not require a round-trip to the server.
     if (!agreedToTerms) {
       setError("You must agree to the terms and conditions.");
       return;
@@ -72,6 +76,7 @@ export default function Register() {
         return;
       }
 
+      // Reset the form so the page is clean if the user navigates back here.
       setForm(initialForm);
       navigate("/login");
     } catch {

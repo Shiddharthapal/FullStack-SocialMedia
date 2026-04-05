@@ -10,6 +10,8 @@ declare global {
 
 import mongoose from "mongoose";
 
+// Reuse a single Mongoose connection across API calls. Astro can execute many
+// requests in the same process, so reconnecting on every request is wasteful.
 const connect = async () => {
   const conected = mongoose.connection.readyState;
 

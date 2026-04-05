@@ -6,8 +6,12 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+// GET /api/getspost serves the paginated home feed and annotates each post with
+// viewer-specific reaction state when the current user id is provided.
 const DEFAULT_POST_AVATAR = "/images/post_img.png";
 
+// Keep the API response stable even if Mongo documents include `_id` or older
+// field names from previous versions of the app.
 function serializeComment(commentDocument: any) {
   const comment = typeof commentDocument?.toJSON === "function"
     ? commentDocument.toJSON()
@@ -94,6 +98,7 @@ function serializePost(postDocument: any, currentUserId = "") {
 export const GET: APIRoute = async ({ request }) => {
   try {
     const url = new URL(request.url);
+    // Clamp user input so the client cannot request an unbounded page size.
     const page = Math.max(1, Number(url.searchParams.get("page") ?? "1"));
     const limit = Math.min(
       20,

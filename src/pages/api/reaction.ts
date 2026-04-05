@@ -8,8 +8,11 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+// PATCH /api/reaction toggles a single "Like" reaction for one user on one post.
+// The updated post is returned so the feed can refresh in place.
 const DEFAULT_POST_AVATAR = "/images/post_img.png";
 
+// Serializers normalize nested Mongoose documents before sending them to React.
 function serializeComment(commentDocument: any) {
   const comment = typeof commentDocument?.toJSON === "function"
     ? commentDocument.toJSON()
@@ -96,7 +99,7 @@ function serializePost(postDocument: any, currentUserId = "") {
 export const PATCH: APIRoute = async ({ request }) => {
   try {
     const { postId, userId } = await request.json();
-    
+
     const trimmedPostId = String(postId ?? "").trim();
     const trimmedUserId = String(userId ?? "").trim();
 
@@ -158,6 +161,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     let updatedPost;
 
     if (hasExistingReaction) {
+      // Remove the user's existing reaction to implement "unlike".
       updatedPost = await Post.findOneAndUpdate(
         { _id: trimmedPostId },
         {
@@ -175,6 +179,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     } else {
       const now = new Date();
 
+      // The query guard ensures the same user is not added twice.
       updatedPost = await Post.findOneAndUpdate(
         {
           _id: trimmedPostId,
@@ -212,6 +217,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       ? updatedPost.reactions
       : [];
 
+    // Keep counters denormalized for fast feed rendering.
     updatedPost.reactionCount = updatedReactions.length;
     updatedPost.topReactions = updatedReactions.length > 0 ? ["Like"] : [];
     updatedPost.markModified("reactions");

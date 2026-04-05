@@ -10,6 +10,8 @@ import type { Post, PostVisibility } from "@/types/post";
 import { useAppSelector } from "@/redux/hooks";
 import { Link } from "react-router-dom";
 
+// Home is the main authenticated feed route. It owns post creation, feed
+// fetching, infinite scrolling, comments, and reaction toggling in one place.
 interface FileUpload {
   _id?: string;
   file: File;
@@ -28,6 +30,8 @@ interface FileUpload {
   updatedAt?: Date;
 }
 
+// These arrays are static demo/sidebar content. Real feed data is fetched from
+// the backend API routes later in this component.
 const notifications = [
   {
     id: 1,
@@ -136,6 +140,8 @@ function preventDefault(event: FormEvent) {
   event.preventDefault();
 }
 
+// Feed items store ISO timestamps, so the UI turns them into a readable relative
+// label here instead of pushing presentation logic into the API.
 function formatRelativeTime(dateValue: string) {
   const targetDate = new Date(dateValue);
 
@@ -434,7 +440,11 @@ export default function Home() {
   const [reactingPostId, setReactingPostId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
+  // The composer currently shows one selected image at a time even though the
+  // upload state is kept in an array for compatibility with the existing shape.
   const selectedUpload = useMemo(() => uploadedFiles[0] ?? null, [uploadedFiles]);
+  // Private posts stay visible only to their author at the UI layer as an extra
+  // guard on top of the API-side filtering.
   const visiblePosts = useMemo(
     () =>
       posts.filter(
@@ -446,6 +456,7 @@ export default function Home() {
   );
 
   useEffect(() => {
+    // Rebuild the feed from page 1 when the authenticated user changes.
     setPosts([]);
     setCurrentPage(1);
     setHasMorePosts(true);
@@ -458,6 +469,8 @@ export default function Home() {
 
     const fetchPosts = async () => {
       try {
+        // The first page uses the main loading state; later pages use the
+        // smaller "load more" indicator for smoother scrolling.
         if (currentPage === 1) {
           setIsLoadingPosts(true);
         } else {
@@ -532,6 +545,8 @@ export default function Home() {
   }, [currentPage, user?._id]);
 
   useEffect(() => {
+    // Revoke object URLs when the selected image changes or the component
+    // unmounts so browser memory is not leaked by blob previews.
     return () => {
       uploadedFiles.forEach((file) => {
         if (file.url.startsWith("blob:")) {
@@ -548,6 +563,8 @@ export default function Home() {
       return;
     }
 
+    // The sentinel element at the end of the feed automatically loads the next
+    // page once it becomes visible.
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
@@ -629,6 +646,7 @@ export default function Home() {
       return;
     }
 
+    // One composer supports both text-only posts and posts with an uploaded image.
     const trimmedText = composerText.trim();
 
     if (!trimmedText) {
@@ -716,6 +734,8 @@ export default function Home() {
       return;
     }
 
+    // Each post keeps its own draft and submit state so comment boxes do not
+    // overwrite one another while multiple cards are visible.
     const trimmedContent = (commentDrafts[postId] ?? "").trim();
 
     if (!trimmedContent) {
@@ -806,13 +826,14 @@ export default function Home() {
       });
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update reaction");
-      }
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to update reaction");
+        }
 
-      setPosts((currentPosts) =>
-        currentPosts.map((post) =>
-          (post.id ?? post._id) === postId ? data.post as Post : post,
+        // Replace only the touched post so the rest of the feed keeps its local state.
+        setPosts((currentPosts) =>
+          currentPosts.map((post) =>
+            (post.id ?? post._id) === postId ? data.post as Post : post,
         ),
       );
     } catch (error) {

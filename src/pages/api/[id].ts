@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import connect from "@/lib/connection";
 import userDetails from "@/model/User";
 
+// GET /api/[id] returns one user document by id for profile-style lookups.
 export const GET: APIRoute = async ({ params, request }) => {
   const headers = {
     "Content-Type": "application/json",

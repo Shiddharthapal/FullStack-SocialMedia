@@ -8,6 +8,8 @@ const headers = {
   "Content-Type": "application/json",
 };
 
+// PATCH /api/comments appends a nested comment to a post document and returns
+// the refreshed post so the UI can update without refetching the whole feed.
 const DEFAULT_POST_AVATAR = "/images/post_img.png";
 
 // ✅ FIXED: read "authorid" not "id"
@@ -137,6 +139,8 @@ export const PATCH: APIRoute = async ({ request }) => {
       `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
       String(user.email).split("@")[0];
 
+    // Comments are embedded inside the post document so the feed card can render
+    // the post and its recent comments from one API response.
     const newComment = {
       id: new mongoose.Types.ObjectId().toString(),
       postId: String(post._id),
