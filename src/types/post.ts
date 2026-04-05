@@ -46,13 +46,13 @@ export interface Post {
 
   // counts (denormalized for fast reads)
   reactionCount: number;
-  commentCount: number;     // maps to post.comments in component
-  shareCount: number;       // maps to post.shares in component
+  commentCount: number;     
+  shareCount: number;       
 
   // preview of latest comment shown under the post
   commentPreview?: string;  // maps to post.preview in component
 
-  // reaction summary icons shown (e.g. react_img1, react_img2)
+  // reaction summary icons shown 
   topReactions: ReactionType[];
 }
 

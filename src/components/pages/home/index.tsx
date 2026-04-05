@@ -1,4 +1,12 @@
-import { useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import type { Post } from "@/types/post";
+import { useAppSelector } from "@/redux/hooks";
 import { Link } from "react-router-dom";
 
 const notifications = [
@@ -79,33 +87,6 @@ const people = [
   },
 ];
 
-const posts = [
-  {
-    id: 1,
-    author: "Karim Saif",
-    avatar: "/images/post_img.png",
-    image: "/images/timeline_img.png",
-    title: "Healthy Tracking App",
-    time: "5 minutes ago",
-    comments: 12,
-    shares: 122,
-    preview:
-      "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.",
-  },
-  {
-    id: 2,
-    author: "Radovan SkillArena",
-    avatar: "/images/post_img.png",
-    image: "/images/timeline_img.png",
-    title: "Product sprint dashboard",
-    time: "12 minutes ago",
-    comments: 8,
-    shares: 64,
-    preview:
-      "The updated workflow is clearer now and the whole team can follow sprint health at a glance.",
-  },
-];
-
 const friends = [
   {
     id: 1,
@@ -132,6 +113,43 @@ const friends = [
 
 function preventDefault(event: FormEvent) {
   event.preventDefault();
+}
+
+function formatRelativeTime(dateValue: string) {
+  const targetDate = new Date(dateValue);
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return dateValue;
+  }
+
+  const diffInSeconds = Math.max(
+    1,
+    Math.floor((Date.now() - targetDate.getTime()) / 1000),
+  );
+
+  if (diffInSeconds < 60) {
+    return "Just now";
+  }
+
+  const minutes = Math.floor(diffInSeconds / 60);
+
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+
+  if (days < 7) {
+    return `${days} day${days === 1 ? "" : "s"} ago`;
+  }
+
+  return targetDate.toLocaleDateString();
 }
 
 function HomeNavIcon() {
@@ -302,10 +320,156 @@ function PenComposerIcon() {
 }
 
 export default function Home() {
+  const { user } = useAppSelector((state) => state.auth);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [openPostMenuId, setOpenPostMenuId] = useState<number | null>(null);
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
   const [composerText, setComposerText] = useState("");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [feedError, setFeedError] = useState("");
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+  const [composerError, setComposerError] = useState("");
+  const [composerSuccess, setComposerSuccess] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // useEffect(() => {
+  //   let ignore = false;
+
+  //   const fetchPosts = async () => {
+  //     try {
+  //       setFeedError("");
+  //       const response = await fetch("/api/posts");
+  //       const data = await response.json();
+
+  //       if (!response.ok) {
+  //         throw new Error(data.message || "Failed to fetch posts");
+  //       }
+
+  //       if (!ignore) {
+  //         setPosts(Array.isArray(data.posts) ? data.posts : []);
+  //       }
+  //     } catch (error) {
+  //       if (!ignore) {
+  //         setFeedError(
+  //           error instanceof Error
+  //             ? error.message
+  //             : "Failed to fetch posts",
+  //         );
+  //       }
+  //     } finally {
+  //       if (!ignore) {
+  //         setIsLoadingPosts(false);
+  //       }
+  //     }
+  //   };
+
+  //   fetchPosts();
+
+  //   return () => {
+  //     ignore = true;
+  //   };
+  // }, []);
+
+  useEffect(() => {
+    return () => {
+      if (selectedImagePreview) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+    };
+  }, [selectedImagePreview]);
+
+  const clearSelectedImage = () => {
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    setSelectedImage(null);
+    setSelectedImagePreview("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handlePhotoSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setComposerError("Please choose a valid image file.");
+      event.target.value = "";
+      return;
+    }
+
+    setComposerError("");
+
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    setSelectedImage(file);
+    setSelectedImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleCreatePost = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!user?._id) {
+      setComposerError("You must be logged in to create a post.");
+      return;
+    }
+
+    const trimmedText = composerText.trim();
+
+    if (!trimmedText) {
+      setComposerError("Write something before posting.");
+      return;
+    }
+
+    try {
+      setIsSubmittingPost(true);
+      setComposerError("");
+      setComposerSuccess("");
+
+      const formData = new FormData();
+      formData.append("authorId", user._id);
+      formData.append("title", trimmedText);
+      formData.append("visibility", "Public");
+
+      if (selectedImage) {
+        formData.append("image", selectedImage);
+      }
+
+      const response = await fetch("/api/posts", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to create post");
+      }
+
+      setPosts((currentPosts) => [data.post as Post, ...currentPosts]);
+      setComposerText("");
+      clearSelectedImage();
+      setComposerSuccess("Post created successfully.");
+    } catch (error) {
+      setComposerError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create post",
+      );
+    } finally {
+      setIsSubmittingPost(false);
+    }
+  };
 
   return (
     <div className="_layout _layout_main_wrapper">
@@ -313,7 +477,7 @@ export default function Home() {
         <nav className="navbar navbar-expand-lg navbar-light _header_nav _padd_t10">
           <div className="container _custom_container">
             <div className="_logo_wrap">
-              <Link className="navbar-brand" to="/home">
+              <Link className="navbar-brand" to="/">
                 <img
                   src="/images/logo.svg"
                   alt="Buddy Script"
@@ -336,7 +500,7 @@ export default function Home() {
                 <li className="nav-item _header_nav_item">
                   <Link
                     className="nav-link _header_nav_link _header_nav_link_active"
-                    to="/home"
+                    to="/"
                     aria-label="Home"
                     title="Home"
                   >
@@ -550,7 +714,7 @@ export default function Home() {
             <div className="container">
               <div className="_header_mobile_menu_top_inner">
                 <div className="_header_mobile_menu_logo">
-                  <Link to="/home">
+                  <Link to="/">
                     <img
                       src="/images/logo.svg"
                       alt="Buddy Script"
@@ -573,7 +737,7 @@ export default function Home() {
             <ul className="_mobile_navigation_bottom_list">
               <li className="_mobile_navigation_bottom_item">
                 <Link
-                  to="/home"
+                  to="/"
                   className="_mobile_navigation_bottom_link _mobile_navigation_bottom_link_active"
                   aria-label="Home"
                   title="Home"
@@ -957,7 +1121,17 @@ export default function Home() {
                       ) : null}
                     </div>
 
-                    <div className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16">
+                    <form
+                      className="_feed_inner_text_area _b_radious6 _padd_b24 _padd_t24 _padd_r24 _padd_l24 _mar_b16"
+                      onSubmit={handleCreatePost}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={handlePhotoSelect}
+                      />
                       <div className="_feed_inner_text_area_box">
                         <div className="_feed_inner_text_area_box_image">
                           <img
@@ -975,6 +1149,7 @@ export default function Home() {
                             onChange={(event) =>
                               setComposerText(event.target.value)
                             }
+                            disabled={isSubmittingPost}
                           />
                           <label
                             className="_feed_textarea_label"
@@ -985,21 +1160,60 @@ export default function Home() {
                           </label>
                         </div>
                       </div>
+
+                      {composerError ? (
+                        <div className="alert alert-danger mt-3 mb-0" role="alert">
+                          {composerError}
+                        </div>
+                      ) : null}
+
+                      {composerSuccess ? (
+                        <div className="alert alert-success mt-3 mb-0" role="alert">
+                          {composerSuccess}
+                        </div>
+                      ) : null}
+
+                      {selectedImagePreview ? (
+                        <div className="mt-3 rounded overflow-hidden border">
+                          <img
+                            src={selectedImagePreview}
+                            alt={selectedImage?.name || "Selected post image"}
+                            className="_time_img"
+                          />
+                          <div className="d-flex align-items-center justify-content-between p-3">
+                            <span className="small text-break">
+                              {selectedImage?.name}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={clearSelectedImage}
+                              disabled={isSubmittingPost}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
                       <div className="_feed_inner_text_area_bottom">
                         <div className="_feed_inner_text_area_item">
                           <div className="_feed_inner_text_area_bottom_photo _feed_common">
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isSubmittingPost}
                             >
                               <PhotoComposerIcon />
-                              Photo
+                              {selectedImage ? "Change Photo" : "Photo"}
                             </button>
                           </div>
                           <div className="_feed_inner_text_area_bottom_video _feed_common">
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              disabled
                             >
                               <VideoComposerIcon />
                               Video
@@ -1009,6 +1223,7 @@ export default function Home() {
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              disabled
                             >
                               <EventComposerIcon />
                               Event
@@ -1018,6 +1233,7 @@ export default function Home() {
                             <button
                               type="button"
                               className="_feed_inner_text_area_bottom_photo_link"
+                              disabled
                             >
                               <ArticleComposerIcon />
                               Article
@@ -1026,15 +1242,43 @@ export default function Home() {
                         </div>
                         <div className="_feed_inner_text_area_btn">
                           <button
-                            type="button"
+                            type="submit"
                             className="_feed_inner_text_area_btn_link"
+                            disabled={isSubmittingPost}
                           >
                             <PostComposerIcon />
-                            <span>Post</span>
+                            <span>
+                              {isSubmittingPost ? "Posting..." : "Post"}
+                            </span>
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </form>
+
+                    {feedError ? (
+                      <div className="alert alert-danger" role="alert">
+                        {feedError}
+                      </div>
+                    ) : null}
+
+                    {isLoadingPosts ? (
+                      <div className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16">
+                        <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
+                          <p className="mb-0">Loading posts...</p>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {!isLoadingPosts && posts.length === 0 ? (
+                      <div className="_feed_inner_timeline_post_area _b_radious6 _padd_b24 _padd_t24 _mar_b16">
+                        <div className="_feed_inner_timeline_content _padd_r24 _padd_l24">
+                          <p className="mb-0">
+                            No posts yet. Write the first post from the composer
+                            above.
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
 
                     {posts.map((post) => (
                       <div
@@ -1046,17 +1290,18 @@ export default function Home() {
                             <div className="_feed_inner_timeline_post_box">
                               <div className="_feed_inner_timeline_post_box_image">
                                 <img
-                                  src={post.avatar}
-                                  alt={post.author}
+                                  src={post.author.avatar}
+                                  alt={post.author.name}
                                   className="_post_img"
                                 />
                               </div>
                               <div className="_feed_inner_timeline_post_box_txt">
                                 <h4 className="_feed_inner_timeline_post_box_title">
-                                  {post.author}
+                                  {post.author.name}
                                 </h4>
                                 <p className="_feed_inner_timeline_post_box_para">
-                                  {post.time} . <a href="#0">Public</a>
+                                  {formatRelativeTime(post.createdAt)} .{" "}
+                                  <a href="#0">{post.visibility}</a>
                                 </p>
                               </div>
                             </div>
@@ -1111,15 +1356,17 @@ export default function Home() {
                             </div>
                           </div>
                           <h4 className="_feed_inner_timeline_post_title">
-                            -{post.title}
+                            {post.title}
                           </h4>
-                          <div className="_feed_inner_timeline_image">
-                            <img
-                              src={post.image}
-                              alt={post.title}
-                              className="_time_img"
-                            />
-                          </div>
+                          {post.image ? (
+                            <div className="_feed_inner_timeline_image">
+                              <img
+                                src={post.image}
+                                alt={post.title}
+                                className="_time_img"
+                              />
+                            </div>
+                          ) : null}
                         </div>
                         <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
                           <div className="_feed_inner_timeline_total_reacts_image">
@@ -1140,11 +1387,11 @@ export default function Home() {
                           <div className="_feed_inner_timeline_total_reacts_txt">
                             <p className="_feed_inner_timeline_total_reacts_para1">
                               <a href="#0">
-                                <span>{post.comments}</span> Comment
+                                <span>{post.commentCount}</span> Comment
                               </a>
                             </p>
                             <p className="_feed_inner_timeline_total_reacts_para2">
-                              <span>{post.shares}</span> Share
+                              <span>{post.shareCount}</span> Share
                             </p>
                           </div>
                         </div>
@@ -1299,7 +1546,10 @@ export default function Home() {
                                 </div>
                                 <div className="_comment_status">
                                   <p className="_comment_status_text">
-                                    <span>{post.preview}</span>
+                                    <span>
+                                      {post.commentPreview ||
+                                        "No comments yet on this post."}
+                                    </span>
                                   </p>
                                 </div>
                               </div>

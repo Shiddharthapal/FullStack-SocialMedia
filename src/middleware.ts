@@ -1,6 +1,7 @@
-import connect from './lib/connection';
+import type { MiddlewareHandler } from "astro";
+import connect from "./lib/connection";
 
-export async function onRequest(context, next) {
-  connect();
+export const onRequest: MiddlewareHandler = async (_, next) => {
+  await connect();
   return next();
-}
+};

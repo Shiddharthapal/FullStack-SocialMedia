@@ -61,8 +61,12 @@ export const authSlice = createSlice({
         "authUser",
         JSON.stringify({
           _id: action.payload._id,
+          firstName: action.payload.firstName,
+          lastName: action.payload.lastName,
           email: action.payload.email,
-        })
+          password: "",
+          createdAt: action.payload.createdAt,
+        }),
       );
     },
     loginFailure: (state, action: PayloadAction<string>) => {

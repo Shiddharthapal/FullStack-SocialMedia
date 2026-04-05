@@ -101,7 +101,7 @@ export class BunnyStorageService {
    */
   async uploadFile(
     destinationPath: string,
-    fileData: Buffer,
+    fileData: ArrayBuffer | ArrayLike<number>,
     fileMimeType: string = "application/octet-stream",
     checksum?: string
   ): Promise<ApiResponse> {
@@ -114,10 +114,15 @@ export class BunnyStorageService {
       headers["Checksum"] = checksum;
     }
 
+    const blobPart =
+      fileData instanceof ArrayBuffer
+        ? fileData
+        : Uint8Array.from(fileData).buffer;
+
     const response = await fetch(this.getApiUrl(destinationPath), {
       method: "PUT",
       headers: headers,
-      body: fileData,
+      body: new Blob([blobPart], { type: fileMimeType }),
     });
 
     return this.handleResponse(response);
