@@ -1055,25 +1055,16 @@ export default function Home() {
             ) : null}
           </div>
           <div className="_feed_inner_timeline_total_reacts _padd_r24 _padd_l24 _mar_b26">
-            <div className="_feed_inner_timeline_total_reacts_image">
-              <img
-                src="/images/react_img1.png"
-                alt="react"
-                className="_react_img1"
-              />
-              <img
-                src="/images/react_img2.png"
-                alt="react"
-                className="_react_img"
-              />
-              <p className="_feed_inner_timeline_total_reacts_para">
-                {post.reactionCount}
+            <div className="_feed_inner_timeline_total_reacts_txt">
+              <p className="_feed_inner_timeline_total_reacts_para1">
+                <span>{post.reactionCount}</span> Likes
               </p>
+              
             </div>
             <div className="_feed_inner_timeline_total_reacts_txt">
               <p className="_feed_inner_timeline_total_reacts_para1">
                 <a href="#0">
-                  <span>{post.comments.length}</span> Comment
+                  <span>{post.comments.length}</span> Comments
                 </a>
               </p>
               <p className="_feed_inner_timeline_total_reacts_para2">
