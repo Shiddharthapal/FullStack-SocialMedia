@@ -38,21 +38,26 @@ export interface Post {
   id: string;
   author: PostAuthor;
   title: string;
-  image?: string;           // optional — post may not have an image
+  image?: string; // optional — post may not have an image
   visibility: PostVisibility;
-  time: string;             // e.g. "2 hours ago" or ISO date string
-  createdAt: string;        // ISO date string for DB sorting
+  time: string; // e.g. "2 hours ago" or ISO date string
+  createdAt: string; // ISO date string for DB sorting
   updatedAt?: string;
 
   // counts (denormalized for fast reads)
   reactionCount: number;
-  commentCount: number;     
-  shareCount: number;       
+  commentCount: number;
+  shareCount: number;
+  path: string;
+//   url: string;
+//   filename: string;
+//   originalName: string;
+//   documentName: string;
 
   // preview of latest comment shown under the post
-  commentPreview?: string;  // maps to post.preview in component
+  commentPreview?: string; // maps to post.preview in component
 
-  // reaction summary icons shown 
+  // reaction summary icons shown
   topReactions: ReactionType[];
 }
 

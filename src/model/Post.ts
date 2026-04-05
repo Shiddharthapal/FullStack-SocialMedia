@@ -81,6 +81,18 @@ const postSchema = new Schema(
       type: String,
       default: undefined,
     },
+    // url: {
+    //     type: String,
+    // },
+    // filename: {
+    //     type: String,
+    // },
+    // originalName: {
+    //     type: String,
+    // },
+    // documentName: {
+    //     type: String,
+    // },
     topReactions: [
       {
         type: String,

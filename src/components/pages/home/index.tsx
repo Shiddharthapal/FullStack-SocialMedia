@@ -354,43 +354,45 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectedUpload = uploadedFiles[0] ?? null;
 
-  // useEffect(() => {
-  //   let ignore = false;
+  useEffect(() => {
+    let ignore = false;
 
-  //   const fetchPosts = async () => {
-  //     try {
-  //       setFeedError("");
-  //       const response = await fetch("/api/posts");
-  //       const data = await response.json();
+    const fetchPosts = async () => {
+      try {
+        setFeedError("");
+        const response = await fetch("/api/posts");
+        const data = await response.json();
+        console.log("data ==> ", data);
+        setPosts(Array.isArray(data.posts) ? data.posts : []);
 
-  //       if (!response.ok) {
-  //         throw new Error(data.message || "Failed to fetch posts");
-  //       }
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch posts");
+        }
 
-  //       if (!ignore) {
-  //         setPosts(Array.isArray(data.posts) ? data.posts : []);
-  //       }
-  //     } catch (error) {
-  //       if (!ignore) {
-  //         setFeedError(
-  //           error instanceof Error
-  //             ? error.message
-  //             : "Failed to fetch posts",
-  //         );
-  //       }
-  //     } finally {
-  //       if (!ignore) {
-  //         setIsLoadingPosts(false);
-  //       }
-  //     }
-  //   };
+        if (!ignore) {
+          setPosts(Array.isArray(data.posts) ? data.posts : []);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setFeedError(
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch posts",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingPosts(false);
+        }
+      }
+    };
 
-  //   fetchPosts();
+    fetchPosts();
 
-  //   return () => {
-  //     ignore = true;
-  //   };
-  // }, []);
+    return () => {
+      ignore = true;
+    };
+  }, [user || posts]);
 
   useEffect(() => {
     return () => {
