@@ -428,6 +428,7 @@ export default function Home() {
   const [composerSuccess, setComposerSuccess] = useState("");
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
+  const [likedPostIds, setLikedPostIds] = useState<Record<string, boolean>>({});
   const [submittingCommentPostId, setSubmittingCommentPostId] = useState<
     string | null
   >(null);
@@ -760,6 +761,13 @@ export default function Home() {
     }
   };
 
+  const handleToggleLike = (postId: string) => {
+    setLikedPostIds((currentLikedPosts) => ({
+      ...currentLikedPosts,
+      [postId]: !currentLikedPosts[postId],
+    }));
+  };
+
   const notificationItems = useMemo(
     () =>
       notifications.map((item) => (
@@ -893,6 +901,7 @@ export default function Home() {
       visiblePosts.map((post) => {
         const postId = post.id ?? post._id ?? "";
         const postComments = Array.isArray(post.comments) ? post.comments : [];
+        const isLiked = Boolean(likedPostIds[postId]);
 
         return (
         <div
@@ -1001,35 +1010,36 @@ export default function Home() {
             </div>
           </div>
           <div className="_feed_inner_timeline_reaction">
-            <button className="_feed_inner_timeline_reaction_emoji _feed_reaction _feed_reaction_active">
+            <button
+              type="button"
+              className={`_feed_inner_timeline_reaction_emoji _feed_reaction${isLiked ? " _feed_reaction_active" : ""}`}
+              onClick={() => handleToggleLike(postId)}
+            >
               <span className="_feed_inner_timeline_reaction_link">
                 {" "}
                 <span>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="19"
-                    height="19"
+                    width="18"
+                    height="18"
                     fill="none"
-                    viewBox="0 0 19 19"
+                    viewBox="0 0 24 24"
                   >
                     <path
-                      fill="#FFCC4D"
-                      d="M9.5 19a9.5 9.5 0 100-19 9.5 9.5 0 000 19z"
+                      d="M14 9V5.5A2.5 2.5 0 0 0 11.5 3L8 10v11h9.24a2 2 0 0 0 1.97-1.64l1.38-7A2 2 0 0 0 18.63 10H14Z"
+                      fill={isLiked ? "#0d6efd" : "none"}
+                      stroke={isLiked ? "#0d6efd" : "#666"}
+                      strokeWidth="1.8"
+                      strokeLinejoin="round"
                     />
                     <path
-                      fill="#664500"
-                      d="M9.5 11.083c-1.912 0-3.181-.222-4.75-.527-.358-.07-1.056 0-1.056 1.055 0 2.111 2.425 4.75 5.806 4.75 3.38 0 5.805-2.639 5.805-4.75 0-1.055-.697-1.125-1.055-1.055-1.57.305-2.838.527-4.75.527z"
-                    />
-                    <path
-                      fill="#fff"
-                      d="M4.75 11.611s1.583.528 4.75.528 4.75-.528 4.75-.528-1.056 2.111-4.75 2.111-4.75-2.11-4.75-2.11z"
-                    />
-                    <path
-                      fill="#664500"
-                      d="M6.333 8.972c.729 0 1.32-.827 1.32-1.847s-.591-1.847-1.32-1.847c-.729 0-1.32.827-1.32 1.847s.591 1.847 1.32 1.847zM12.667 8.972c.729 0 1.32-.827 1.32-1.847s-.591-1.847-1.32-1.847c-.729 0-1.32.827-1.32 1.847s.591 1.847 1.32 1.847z"
+                      d="M8 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h4"
+                      stroke={isLiked ? "#0d6efd" : "#666"}
+                      strokeWidth="1.8"
+                      strokeLinejoin="round"
                     />
                   </svg>
-                  Haha
+                  {isLiked ? "Unlike" : "Like"}
                 </span>
               </span>
             </button>
@@ -1213,6 +1223,7 @@ export default function Home() {
       commentDrafts,
       commentErrors,
       handleCreateComment,
+      likedPostIds,
       openPostMenuId,
       submittingCommentPostId,
       visiblePosts,
